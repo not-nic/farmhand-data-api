@@ -3,7 +3,8 @@
 This the `farmhand-data-api` which is used for ingesting data from the farming simulator games
 and the official modhub into farmhand.
 
-see the `farmhand-service` here: https://github.com/not-nic/farmhand
+> [!NOTE]
+> Note: see the `farmhand-service` here: https://github.com/not-nic/farmhand
 
 ## Install Guide
 1. Clone this repository on your machine:
@@ -17,7 +18,7 @@ see the `farmhand-service` here: https://github.com/not-nic/farmhand
    POSTGRES_USER=postgres
    POSTGRES_PASSWORD=postgres
    POSTGRES_DB=farmhand-data
-   ENVIRONMENT=local
+   ENVIRONMENT=development
    ```
 
 3. Start the service with docker:

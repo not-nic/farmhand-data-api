@@ -29,7 +29,7 @@ class Settings(BaseSettings):
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str
-    ENVIRONMENT: Literal["local", "testing", "production"] = "local"
+    ENVIRONMENT: Literal["development", "testing", "production"] = "development"
 
     @computed_field  # type: ignore[prop-decorator]
     @property
