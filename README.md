@@ -9,7 +9,7 @@ and the official modhub into farmhand.
 ## Install Guide
 1. Clone this repository on your machine:
    ```bash
-   git clone git@github.com:not-nic/farmhand-map-scripts.git
+   git clone git@github.com:not-nic/farmhand-data-api.git
    cd farmhand-data-api
    ```
 2. Create a `.env` file with the following development variables:
