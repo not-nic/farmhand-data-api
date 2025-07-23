@@ -63,7 +63,7 @@ class TestMapService:
 
         map_service = MapService(db)
         map_repository = MapRepository(db)
-        await map_service.get_maps()
+        await map_service.scrape_maps()
 
         assert len(map_repository.all()) == 1
 
@@ -98,7 +98,7 @@ class TestMapService:
         mod_detail.version = "1.1.0.0"
 
         map_service = MapService(db)
-        await map_service.get_maps()
+        await map_service.scrape_maps()
 
         expected_map: Map = map_repository.get_by_id(mod_detail.id)
 
@@ -130,7 +130,7 @@ class TestMapService:
         mod_detail.id = map_id
 
         map_service = MapService(db)
-        await map_service.get_maps()
+        await map_service.scrape_maps()
 
         expected_map: Map = map_repository.get_by_id(mod_detail.id)
 
