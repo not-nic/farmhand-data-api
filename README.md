@@ -1,10 +1,10 @@
 # Farmhand Data API
 
-This the `farmhand-data-api` which is used for ingesting data from the farming simulator games
-and the official modhub into farmhand.
+This is the `farmhand-data-api` which is a Python backend API for ingesting data into the farmhand application.
+It handles scraping mods from the modhub, XML conversion and Map & Savegame data.
 
 > [!NOTE]
-> Note: see the `farmhand-service` here: https://github.com/not-nic/farmhand
+> See the `farmhand-service` backend API here: https://github.com/not-nic/farmhand
 
 ## Install Guide
 1. Clone this repository on your machine:
