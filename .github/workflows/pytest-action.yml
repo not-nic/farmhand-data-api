@@ -7,6 +7,7 @@ env:
   MINIMUM_COVERAGE: 80
   PYTHON_VERSION: "3.12"
   VENV_PATH: ".venv"
+  TESTING: true
 
 jobs:
   setup-environment:

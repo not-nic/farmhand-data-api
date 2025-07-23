@@ -2,6 +2,7 @@
 Module containing the config / settings for the Farmhand Data API.
 """
 
+import os
 from typing import Literal
 
 from pydantic import computed_field, PostgresDsn
@@ -47,4 +48,23 @@ class Settings(BaseSettings):
     BASE_MOD_URL: str = "https://www.farming-simulator.com/mod.php"
 
 
-settings = Settings()
+class TestSettings(BaseSettings):
+    """
+    Settings configuration used in unit tests.
+    """
+    PROJECT_NAME: str = "Farmhand Data API"
+    VERSION: str = "0.1"
+    API_V1_STR: str = "/api/v1"
+    LOG_FORMAT: str = ""
+
+    DATABASE_URL: str = "sqlite:///./instance/testdb.sqlite"
+    TESTING: bool = True
+
+    BASE_MODS_URL: str = "https://www.farming-simulator.com/mods.php"
+    BASE_MOD_URL: str = "https://www.farming-simulator.com/mod.php"
+
+
+if os.getenv("TESTING"):
+    settings = TestSettings()
+else:
+    settings = Settings()
