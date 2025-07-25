@@ -9,10 +9,10 @@ Dependencies:
     - SessionDep: Database Session dependency.
 """
 
-from fastapi import APIRouter, status, HTTPException
+from fastapi import APIRouter, HTTPException, status
 
 from src.api.core.dependencies import SessionDep
-from src.api.core.schema.maps.maps import MapsResponse, MapModel
+from src.api.core.schema.maps.maps import MapModel, MapsResponse
 from src.api.services.map_service import MapService
 
 router = APIRouter(prefix="/maps", tags=["Maps"])

@@ -3,9 +3,8 @@ Module containing Map pydantic models.
 """
 
 from datetime import date
-from typing import List
 
-from pydantic import BaseModel, field_validator, model_serializer, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator, model_serializer
 
 from src.api.constants import ModHubMapFilters
 from src.api.utils import map_category_to_filter, to_snake_case
@@ -50,7 +49,7 @@ class MapModel(BaseModel):
 
 
 class MapsResponse(BaseModel):
-    maps: List[MapModel]
+    maps: list[MapModel]
     count: int
 
     model_config = ConfigDict(from_attributes=True, arbitrary_types_allowed=True)

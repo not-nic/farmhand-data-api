@@ -14,6 +14,7 @@ class BaseSettingsConfig(BaseSettings):
     """
     Shared settings for both Default & Unit Test settings.
     """
+
     model_config = SettingsConfigDict(
         env_file="./.env",
         env_ignore_empty=True,
@@ -36,6 +37,7 @@ class Settings(BaseSettingsConfig):
     """
     Default settings object for the application.
     """
+
     POSTGRES_HOST: str
     POSTGRES_PORT: int = 5432
     POSTGRES_USER: str
@@ -53,7 +55,7 @@ class Settings(BaseSettingsConfig):
             password=self.POSTGRES_PASSWORD,
             host=self.POSTGRES_HOST,
             port=self.POSTGRES_PORT,
-            path=self.POSTGRES_DB
+            path=self.POSTGRES_DB,
         )
 
 
@@ -61,6 +63,7 @@ class TestSettings(BaseSettingsConfig):
     """
     Settings configuration used in unit tests.
     """
+
     DATABASE_URL: str = "sqlite:///./instance/testdb.sqlite"
     TESTING: bool
 

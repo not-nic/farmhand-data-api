@@ -5,7 +5,7 @@ each set of routes should be appended too.
 
 from fastapi import APIRouter
 
-from src.api.routes import scrape_routes, map_routes
+from src.api.routes import map_routes, scrape_routes
 
 api_router = APIRouter()
 api_router.include_router(scrape_routes.router)

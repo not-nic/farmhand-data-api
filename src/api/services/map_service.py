@@ -9,9 +9,9 @@ from sqlalchemy.orm import Session
 
 from src.api.constants import ModHubMapFilters
 from src.api.core.db.models import Map
+from src.api.core.logger import logger
 from src.api.core.repositories import MapRepository
 from src.api.services.modhub_service import ModHubService
-from src.api.core.logger import logger
 from src.api.utils import parse_version
 
 

@@ -17,6 +17,20 @@ line-length = 100
 [lint]
 extend-select = ["E501"]
 
+select = [
+    "E",  # pycodestyle errors
+    "W",  # pycodestyle warnings
+    "F",  # pyflakes
+    "I",  # isort
+    "B",  # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+]
+
+ignore = [
+    "B904"
+]
+
 [format]
 quote-style = "double"
 skip-magic-trailing-comma = false

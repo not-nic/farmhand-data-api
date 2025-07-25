@@ -3,8 +3,8 @@ ModHub Service Unit Tests.
 """
 
 import datetime
-import pytest
 
+import pytest
 from fastapi import status
 from httpx import HTTPError
 

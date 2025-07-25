@@ -12,5 +12,5 @@ def load_test_resource(filename: str) -> str:
     :return: the file
     """
     filepath = os.path.join("tests", "resources", filename)
-    with open(filepath, "r") as file:
+    with open(filepath) as file:
         return file.read()
