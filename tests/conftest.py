@@ -2,21 +2,19 @@
 Pytest conftest.py module containing test setup, TestClient Fixtures and other mocks.
 """
 
-import httpx
-import pytest
-
 from typing import Optional
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
+import httpx
+import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
 
 from main import app
 from src.api.core.db.models._model_base import SqlAlchemyBase
 from src.api.core.dependencies import SessionDep
 from tests.utils import load_test_resource
-
 
 # Testing database configuration
 SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///./instance/testdb.sqlite"
@@ -69,7 +67,7 @@ def mock_mod_hub_page(mocker) -> callable:
 
     def _mock_page(file_name: Optional[str] = None, status_code: int = status.HTTP_200_OK) -> None:
         html_content = load_test_resource(file_name) if file_name else None
-        dummy_request = httpx.Request(method="GET", url="https://fake-url.com")
+        dummy_request = httpx.Request(method="GET", url="https://farming-simulator.com")
 
         mock_response = httpx.Response(
             status_code=status_code, content=html_content, request=dummy_request

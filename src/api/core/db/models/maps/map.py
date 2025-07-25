@@ -4,7 +4,7 @@ Python module containing the map database model.
 
 from datetime import datetime
 
-from sqlalchemy import Integer, String, DateTime
+from sqlalchemy import DateTime, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.api.core.db.models._model_base import SqlAlchemyBase

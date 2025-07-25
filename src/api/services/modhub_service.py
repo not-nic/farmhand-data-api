@@ -3,15 +3,14 @@ Mod Hub Service Module for generic scraping of the Farming Simulator ModHub
 pages.
 """
 
-import httpx
+from typing import Optional
 
-from typing import Optional, List
+import httpx
 from bs4 import BeautifulSoup, Tag
 from httpx import HTTPError
 
 from src.api.core.config import settings
 from src.api.core.logger import logger
-
 from src.api.core.schema.mods import ModModel
 
 
@@ -84,7 +83,7 @@ class ModHubService:
 
         return mod_ids
 
-    def get_pages(self, category_filter: Optional[str] = None) -> List:
+    def get_pages(self, category_filter: Optional[str] = None) -> list:
         """
         Get the amount of 'mod pages' per category, zero indexed for the URL.
         :param category_filter: the category to filter by.

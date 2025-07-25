@@ -3,6 +3,7 @@ Map Service Unit Tests.
 """
 
 import random
+
 import pytest
 
 from src.api.constants import ModHubMapFilters

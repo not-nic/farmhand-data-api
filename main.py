@@ -3,10 +3,11 @@ Entrypoint for starting the application.
 """
 
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, status, Request
-from fastapi.responses import JSONResponse
+
+from fastapi import FastAPI, Request, status
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 
 from src.api.core.config import settings
 from src.api.core.db.db_setup import engine
