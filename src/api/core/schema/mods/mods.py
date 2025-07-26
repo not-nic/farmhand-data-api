@@ -19,6 +19,8 @@ class ModModel(BaseModel):
     size: str = Field(..., alias="Size")
     version: str = Field(..., alias="Version")
     release_date: Optional[date | str] = Field(..., alias="Released")
+    file_url: str
+    zip_filename: str
     platform: Optional[list | str] = Field(..., alias="Platform")
 
     @field_validator("release_date")
@@ -36,7 +38,12 @@ class ModModel(BaseModel):
         return value
 
     @field_validator("size")
-    def validate_size(cls, value):
+    def validate_size(cls, value) -> str:
+        """
+        Validate the size of a ModHub object.
+        :param value: the 'float' value of the object
+        :return: the size
+        """
         match = re.match(r"^(\d+(\.\d+)?)\s*(KB|MB)$", value.strip(), re.IGNORECASE)
 
         if match:
@@ -44,8 +51,8 @@ class ModModel(BaseModel):
             unit = match.group(3).upper()
 
             if unit == "KB":
-                return size / 1024
-            return size
+                return str(size / 1024)
+            return str(size)
 
         raise ValueError(
             f"Invalid size format: {value}. Expected format is '<number> KB' or '<number> MB'."
