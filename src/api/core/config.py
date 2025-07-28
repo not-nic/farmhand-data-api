@@ -3,7 +3,7 @@ Module containing the config / settings for the Farmhand Data API.
 """
 
 import os
-from typing import Literal
+from typing import Literal, Optional
 
 from pydantic import PostgresDsn, computed_field
 from pydantic_core import MultiHostUrl
@@ -28,8 +28,10 @@ class BaseSettingsConfig(BaseSettings):
         "[%(asctime)s] - [%(levelname)s] - %(filename)s::%(funcName)s::%(lineno)s - %(message)s"
     )
 
-    BASE_MODS_URL: str = "https://www.farming-simulator.com/mods.php"
-    BASE_MOD_URL: str = "https://www.farming-simulator.com/mod.php"
+    BASE_FS_URL: str = "https://www.farming-simulator.com"
+    BASE_MODS_URL: str = f"{BASE_FS_URL}/mods.php"
+    BASE_MOD_URL: str = f"{BASE_FS_URL}/mod.php"
+
     TESTING: bool
 
 
@@ -45,6 +47,15 @@ class Settings(BaseSettingsConfig):
     POSTGRES_DB: str
     ENVIRONMENT: Literal["development", "testing", "production"] = "development"
     TESTING: bool
+
+    AWS_ACCESS_KEY_ID: str
+    AWS_SECRET_ACCESS_KEY: str
+    AWS_REGION: str
+    AWS_S3_BUCKET_NAME: str
+
+    MINIO_ENDPOINT_URL: Optional[str] = None
+
+    PARSER_FILTERS: str = os.path.join("config", "filters.yml")
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -69,4 +80,5 @@ class TestSettings(BaseSettingsConfig):
 
 
 # Use TestSettings if TESTING environment variable is set, otherwise default to Settings
+# TODO UPDATE THIS TO USE ENVIRONMENT instead of TESTING.
 settings = TestSettings() if os.getenv("TESTING", "").lower() == "true" else Settings()
