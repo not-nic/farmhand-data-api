@@ -83,5 +83,13 @@ class TestSettings(BaseSettingsConfig):
     BASE_MOD_URL: str = f"{BASE_FS_URL}/mod.php"
 
 
-# Use TestSettings if TESTING environment variable is set, otherwise default to Settings
-settings = TestSettings() if os.getenv("TESTING", "true").lower() == "true" else Settings()
+def get_settings() -> BaseSettingsConfig:
+    """
+    Function to get the correct configuration based on the
+    testing .env variable.
+    :return: Setting or TestSettings configuration.
+    """
+    testing = os.getenv("TESTING", "").lower() == "true"
+    return TestSettings() if testing else Settings()
+
+settings = get_settings()
