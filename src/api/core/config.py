@@ -78,7 +78,10 @@ class TestSettings(BaseSettingsConfig):
     DATABASE_URL: str = "sqlite:///./instance/testdb.sqlite"
     TESTING: bool
 
+    BASE_FS_URL: str = "http://farmhand-unit-test.com"
+    BASE_MODS_URL: str = f"{BASE_FS_URL}/mods.php"
+    BASE_MOD_URL: str = f"{BASE_FS_URL}/mod.php"
+
 
 # Use TestSettings if TESTING environment variable is set, otherwise default to Settings
-# TODO UPDATE THIS TO USE ENVIRONMENT instead of TESTING.
-settings = TestSettings() if os.getenv("TESTING", "").lower() == "true" else Settings()
+settings = TestSettings() if os.getenv("TESTING", "true").lower() == "true" else Settings()

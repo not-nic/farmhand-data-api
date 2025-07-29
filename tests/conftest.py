@@ -4,54 +4,43 @@ Pytest conftest.py module containing test setup, TestClient Fixtures and other m
 
 from typing import Optional
 
-import httpx
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
 from httpx import Request, Response
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
 
 from main import app
-from src.api.core.db.db_setup import get_engine
+from src.api.core.db.db_setup import get_engine, engine, SessionLocal
 from src.api.core.db.models._model_base import SqlAlchemyBase
 from src.api.core.dependencies import SessionDep
 from tests.utils import load_test_resource
 
-# Testing database configuration
-SQLALCHEMY_TEST_DATABASE_URL = "sqlite:///./instance/testdb.sqlite"
-test_engine = create_engine(SQLALCHEMY_TEST_DATABASE_URL, connect_args={"check_same_thread": False})
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=test_engine)
-
 
 @pytest.fixture(scope="module")
-def db():
+def create_database():
     """
     Fixture to create database and tables
     """
-    db = TestingSessionLocal()
-    SqlAlchemyBase.metadata.create_all(bind=test_engine)
-    yield db
-    SqlAlchemyBase.metadata.drop_all(bind=test_engine)
-
-
-@pytest.fixture(scope="session")
-def inject_database_dep(db):
-    """
-    Injects / Overrides the get_db dependency to use SQLite when testing.
-    :param db: the database fixture.
-    """
-
-    def _inject():
-        yield db
-
-    app.dependency_overrides[SessionDep] = _inject
+    SqlAlchemyBase.metadata.create_all(bind=engine)
     yield
-    app.dependency_overrides.clear()
+    SqlAlchemyBase.metadata.drop_all(bind=engine)
+
+
+@pytest.fixture(scope="module")
+def db(create_database):
+    """
+    Fixture providing a database session
+    :return: database session fixture.
+    """
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 
 @pytest.fixture(scope="session")
-def client(inject_database_dep):
+def client(db):
     """
     Fixture for a FastAPI test client
     """
