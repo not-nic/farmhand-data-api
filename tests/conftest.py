@@ -8,10 +8,12 @@ import httpx
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
+from httpx import Request, Response
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
 from main import app
+from src.api.core.db.db_setup import get_engine
 from src.api.core.db.models._model_base import SqlAlchemyBase
 from src.api.core.dependencies import SessionDep
 from tests.utils import load_test_resource
@@ -66,13 +68,17 @@ def mock_mod_hub_page(mocker) -> callable:
     """
 
     def _mock_page(file_name: Optional[str] = None, status_code: int = status.HTTP_200_OK) -> None:
-        html_content = load_test_resource(file_name) if file_name else None
-        dummy_request = httpx.Request(method="GET", url="https://farming-simulator.com")
+        html_content = load_test_resource(file_name) if file_name else ""
+        request = Request(method="GET", url="https://farmhand-unit-test.uk")
 
-        mock_response = httpx.Response(
-            status_code=status_code, content=html_content, request=dummy_request
+        mock_response = Response(
+            status_code=status_code,
+            content=html_content,
+            request=request,
         )
 
-        mocker.patch("httpx.get", return_value=mock_response)
+        # Patch the async method
+        async_mock = mocker.AsyncMock(return_value=mock_response)
+        mocker.patch("httpx.AsyncClient.get", async_mock)
 
     return _mock_page
