@@ -1,5 +1,5 @@
 """
-Collection of Enums used within the Farmhand service.
+Module containing Enums used within the Farmhand application.
 """
 
 from strenum import StrEnum
@@ -14,6 +14,17 @@ class ModHubMapFilters(StrEnum):
     NORTH_AMERICAN_MAPS = "mapNorthAmerica"
     SOUTH_AMERICAN_MAPS = "mapSouthAmerica"
     OTHER_MAPS = "mapOthers"
+
+
+class FarmhandMapFilters(StrEnum):
+    """
+    Map filters used internally within the farmhand application.
+    """
+
+    EUROPEAN_MAPS = "map_europe"
+    NORTH_AMERICAN_MAPS = "map_north_america"
+    SOUTH_AMERICAN_MAPS = "map_south_america"
+    OTHER_MAPS = "map_others"
 
 
 class GameVersions(StrEnum):
