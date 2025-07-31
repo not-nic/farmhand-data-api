@@ -1,0 +1,104 @@
+farmhand:
+  parser_filters:
+    excluded_file_types:
+      - ".gdm"
+      - ".cache"
+      - ".shapes"
+      - ".ogg"
+      - ".dds"
+      - ".png"
+    excluded_files:
+      - "sounds.i3d"
+      - "field.i3d"
+      - "peat.i3d"
+    excluded_directories:
+      # Textures
+      - "fillPlanes"
+      - "prefabs"
+      - "effects"
+      - "envMaps"
+      - "objects"
+      - "props"
+
+      # Items
+      - "bales"
+      - "trees"
+      - "buildings"
+      - "Bebau"
+      - "hedge"
+      - "deko"
+      - "Dekoration"
+
+      # Gameplay
+      - "missions"
+      - "guidedTour"
+      - "licensePlate"
+      - "licensePlates"
+      - "licensePlatesDE"
+      - "cutter"
+      - "trafficVehicles"
+      - "assets"
+      - "gameTests"
+      - "gameplay"
+      - "rollercoaster"
+
+      # Sounds
+      - "sounds"
+
+      # Translations
+      - "translations"
+      - "languages"
+      - "i10n"
+    excluded_globs:
+      - "textures/**/*.dds"  # remove any diffuse, specular, normal .dds textures
+      - "textures/*.i3d"     # remove any .i3d textures
+      - "textures/**/*.i3d"  # remove any .i3d textures
+      - "models/**/*.dds"    # some maps call the textures directory 'models'
+      - "models/*.dds"       # some maps call the textures directory models
+      - "*_weight.png"       # remove any suffixed with _weight
+      - "l10n_*.xml"         # remove additional translation files.
+    always_include:
+      overview:
+        - "textures/ui/*.dds"
+        - "preview.dds"
+        - "overview.dds"
+        - "overview_*.dds"
+      xml:
+        - "config/*.xml"    # default is to save XML to here.
+        - "xml/*.xml"       # Some maps (i.e. Pallegney) put their XML in a /xml directory
+        - "xmlFiles/*.xml"
+      grle_data:
+        - "data/*.grle"     # default .grle files
+      map:
+        - "map.i3d"
+        - "mapEU.i3d"
+        - "mapDE.i3d"
+      mod:
+        - "modDesc.xml"
+        - "icon_*.dds"
+  extra_content:
+    # Vehicles & Equipment
+    - "vehicles"        # Extra vehicles that come with the map
+    - "Fahrzeughandel"  # German translation
+    - "equipment"       # Extra equipment that come with the map
+    - "buy"
+
+    # buildings / placeables / decorations
+    - "placeables"
+    - "customsPlaceables"
+    - "sellpoints"
+    - "TrainSystem"
+
+    # extra crops / goods
+    - "foliage"
+    - "pallets"
+    - "meadowUS"
+
+    # Misc / Extra bits to consider (custom NPCs, custom map objects)
+    - "icon"
+    - "icons"
+    - "timberLoader"
+    - "npc"
+    - "map_add_in"
+    - "mapItems"
+

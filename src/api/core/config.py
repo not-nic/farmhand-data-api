@@ -28,6 +28,8 @@ class BaseSettingsConfig(BaseSettings):
         "[%(asctime)s] - [%(levelname)s] - %(filename)s::%(funcName)s::%(lineno)s - %(message)s"
     )
 
+    LOG_LEVEL: str = "INFO"
+
     BASE_FS_URL: str = "https://www.farming-simulator.com"
     BASE_MODS_URL: str = f"{BASE_FS_URL}/mods.php"
     BASE_MOD_URL: str = f"{BASE_FS_URL}/mod.php"
@@ -55,7 +57,7 @@ class Settings(BaseSettingsConfig):
 
     MINIO_ENDPOINT_URL: Optional[str] = None
 
-    PARSER_FILTERS: str = os.path.join("config", "filters.yml")
+    APPLICATION_CONFIG: str = os.path.join("config", "application.yml")
 
     @computed_field  # type: ignore[prop-decorator]
     @property
