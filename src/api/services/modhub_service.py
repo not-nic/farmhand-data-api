@@ -27,7 +27,7 @@ class ModHubService:
         :return: (bytes) of the file response.
         """
         headers = {
-            "Referer": "https://www.farming-simulator.com/",
+            "Referer": settings.BASE_FS_URL,
         }
 
         start_time = time.monotonic()
@@ -40,6 +40,33 @@ class ModHubService:
         logger.info(f"Downloaded file size: {format_file_size(file_size)}")
 
         return response.content
+
+    async def get_download_url(
+            self,
+            mod_id: Optional[int] = None,
+            page_contents: Optional[BeautifulSoup] = None
+    ) -> Optional[str]:
+        """
+        Gets the download URL either from a mod_id or the page_contents HTML.
+        :param mod_id: the id of the mod to download
+        :param page_contents: the contents of a 'scraped page'
+        :return: mod_url if it exists.
+        """
+
+        if page_contents is None and mod_id is None:
+            raise ValueError("Either 'mod_id' or 'page_contents' must be provided.")
+
+        if page_contents is None:
+            url = self.create_mod_url(mod_id=mod_id)
+            response = await self._make_request(url)
+            page_contents = BeautifulSoup(response.content, "html.parser")
+
+        download_button = page_contents.find(
+            "a",
+            class_="button button-buy button-middle button-no-margin expanded"
+        )
+
+        return download_button['href'] if download_button else None
 
     async def scrape_mod(self, mod_id: int) -> ModModel:
         """
@@ -55,12 +82,7 @@ class ModHubService:
         mod_name = page_contents.find("h2", class_="column title-label").get_text(strip=True)
         mod_info = page_contents.find("div", class_="table table-game-info")
 
-        download_button = page_contents.find(
-            "a",
-            class_="button button-buy button-middle button-no-margin expanded"
-        )
-
-        file_url = download_button['href'] if download_button else None
+        file_url = await self.get_download_url(page_contents=page_contents)
 
         if mod_info:
             mod_details = self.get_mod_details(mod_info)
@@ -245,9 +267,11 @@ class ModHubService:
         :param url: the url to request.
         :return: the response data.
         """
+        # Investigate silent error when map takes a while to download,
+        # likely a timeout from Httpx
         async with httpx.AsyncClient() as client:
             try:
-                logger.info(f"Making request to ModHub url")
+                logger.info(f"Making request to ModHub url: %s", url)
                 response = await client.get(url=url, headers=headers if headers else {})
                 response.raise_for_status()
             except httpx.HTTPStatusError as exc:
@@ -255,5 +279,4 @@ class ModHubService:
                     f"Unable to connect to the ModHub - got status code: {exc.response.status_code}"
                 )
                 raise HTTPError(message=f"Request failed with status code: {exc.response.status_code}")
-
         return response
