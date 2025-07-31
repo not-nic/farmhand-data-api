@@ -10,9 +10,8 @@ from fastapi.testclient import TestClient
 from httpx import Request, Response
 
 from main import app
-from src.api.core.db.db_setup import get_engine, engine, SessionLocal
+from src.api.core.db.db_setup import SessionLocal, engine
 from src.api.core.db.models._model_base import SqlAlchemyBase
-from src.api.core.dependencies import SessionDep
 from tests.utils import load_test_resource
 
 
