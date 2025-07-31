@@ -3,11 +3,11 @@ Module containing Map pydantic models.
 """
 
 from datetime import date
+from typing import Optional
 
-from pydantic import BaseModel, ConfigDict, field_validator, model_serializer
+from pydantic import BaseModel, ConfigDict, field_validator
 
-from src.api.constants import ModHubMapFilters
-from src.api.utils import map_category_to_filter, to_snake_case
+from src.api.constants import FarmhandMapFilters
 
 
 class MapModel(BaseModel):
@@ -17,39 +17,58 @@ class MapModel(BaseModel):
 
     id: int
     name: str
-    category: ModHubMapFilters
+    category: FarmhandMapFilters
     author: str
     release_date: date
     version: str
+    zip_filename: str
+    data_uri: Optional[str] = None
 
     model_config = ConfigDict(from_attributes=True, arbitrary_types_allowed=True)
 
     @field_validator("category", mode="before")
-    def validate_category(cls, v):
+    def validate_category(cls, value):
         """
-        Convert the category that stored in the databae
-        to the ModHub filter.
-        :param v: the value to convert.
-        :return: the category used in ModHub.
-        """
-        if isinstance(v, ModHubMapFilters):
-            return v
-        return map_category_to_filter(v)
+        Convert a Farming Simulator category name into a snake_case map filter name.
+        For example, 'European Maps' -> 'map_europe'.
 
-    @model_serializer(mode="wrap")
-    def serialize_category_as_snake_case(self, handler):
+        :param value: The category to convert.
+        :return: A snake_case formatted filter string.
+        :raises: ValueError if category is not recognised.
         """
-        serialize the category into snake_case.
-        :param handler: pydantic handler.
-        :return: the category in snake_case.
-        """
-        data = handler(self)
-        data["category"] = to_snake_case(self.category.value)
-        return data
+
+        if isinstance(value, FarmhandMapFilters) or value in FarmhandMapFilters:
+            return value
+        else:
+            mapping = {
+                "European Maps": FarmhandMapFilters.EUROPEAN_MAPS,
+                "North American Maps": FarmhandMapFilters.NORTH_AMERICAN_MAPS,
+                "South American Maps": FarmhandMapFilters.SOUTH_AMERICAN_MAPS,
+                "Other/Fantasy Maps": FarmhandMapFilters.OTHER_MAPS
+            }
+
+            try:
+                return mapping[value]
+            except KeyError:
+                raise ValueError(
+                    f"Invalid category: '{value}', "
+                    f"Valid categories are: {[f.value for f in FarmhandMapFilters]}"
+                )
 
 
 class MapsResponse(BaseModel):
+    """
+    Pydantic model response containing multiple maps.
+    """
     maps: list[MapModel]
     count: int
 
     model_config = ConfigDict(from_attributes=True, arbitrary_types_allowed=True)
+
+
+class MapUploadResponse(BaseModel):
+    """
+    Pydantic model for pre-signed URL response.
+    """
+    id: int
+    url: str

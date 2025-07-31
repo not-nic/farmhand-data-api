@@ -1,5 +1,5 @@
 """
-Collection of Enums used within the Farmhand service.
+Module containing Enums used within the Farmhand application.
 """
 
 from strenum import StrEnum
@@ -16,6 +16,17 @@ class ModHubMapFilters(StrEnum):
     OTHER_MAPS = "mapOthers"
 
 
+class FarmhandMapFilters(StrEnum):
+    """
+    Map filters used internally within the farmhand application.
+    """
+
+    EUROPEAN_MAPS = "map_europe"
+    NORTH_AMERICAN_MAPS = "map_north_america"
+    SOUTH_AMERICAN_MAPS = "map_south_america"
+    OTHER_MAPS = "map_others"
+
+
 class GameVersions(StrEnum):
     """
     Versions of the supported and used for scraping.
@@ -23,3 +34,15 @@ class GameVersions(StrEnum):
 
     FS_2025 = "fs2025"
     FS_2022 = "fs2022"
+
+
+class ContentType(StrEnum):
+    """
+    Content types supported by Farming Simulator save games.
+    """
+    XML = "application/xml"
+    I3D = "application/xml"
+    PNG = "image/png"
+    JPG = "image/jpeg"
+    JPEG = "image/jpeg"
+    BINARY_OCTET_STREAM = "binary/octet-stream"

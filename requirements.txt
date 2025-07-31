@@ -5,6 +5,7 @@ sqlalchemy==2.0.38
 pydantic==2.10.6
 pydantic_core==2.27.2
 pydantic-settings==2.8.1
+pydantic-xml==2.17.3
 alembic==1.15.1
 SQLAlchemy==2.0.38
 psycopg2-binary==2.9.10
@@ -12,7 +13,12 @@ pytest==8.3.5
 pytest-mock==3.14.0
 pytest-cov==6.0.0
 pytest-asyncio==0.25.3
+pytest-env==1.1.5
 beautifulsoup4==4.13.3
 ruff==0.9.9
 httpx==0.28.1
 StrEnum==0.4.15
+boto3==1.39.13
+botocore==1.39.13
+mypy-boto3-s3==1.39.5
+pyyaml==6.0.2

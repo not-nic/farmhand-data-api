@@ -34,10 +34,12 @@ class TestMapService:
             Version="1.0.0.0",
             Released="30.04.2025",
             Platform="PC/MAC",
+            file_url="https://mod-download.com/custom-map-1.zip",
+            zip_filename="custom-map-1.zip"
         )
 
     @pytest.fixture
-    def mock_mod_hub_service(self, mocker, mod_detail):
+    async def mock_mod_hub_service(self, mocker, mod_detail):
         """
         Mock the modhub service calls used within the map service with a
         single id and mod model.
@@ -52,10 +54,9 @@ class TestMapService:
         )
 
         mocker.patch.object(ModHubService, "get_pages", return_value=[0])
-
         mocker.patch.object(ModHubService, "scrape_mod", return_value=mod_detail)
 
-    async def test_get_map_that_does_not_exist(self, db, mock_mod_hub_service, mod_detail):
+    async def test_map_service_scrapes_maps(self, db, mock_mod_hub_service, mod_detail):
         """
         Test that the map_service creates a map from the mock mod hub service fixture.
         :param mock_mod_hub_service: mock modhub service fixture
@@ -73,9 +74,10 @@ class TestMapService:
         assert expected_map.id == mod_detail.id
         assert expected_map.name == mod_detail.name
         assert expected_map.author == mod_detail.author
-        assert expected_map.category == mod_detail.category
+        assert expected_map.category == "map_europe"
         assert expected_map.release_date == str(mod_detail.release_date)
         assert expected_map.version == mod_detail.version
+        assert expected_map.zip_filename == mod_detail.zip_filename
 
     async def test_get_map_updates_based_on_mod_version(self, db, mock_mod_hub_service, mod_detail):
         """
@@ -122,7 +124,7 @@ class TestMapService:
         map_repository.create(
             id=map_id,
             name="Custom Map 1",
-            category="European Maps",
+            category="map-europe",
             author="user",
             release_date="30-04-2025",
             version="1.0.0.0",

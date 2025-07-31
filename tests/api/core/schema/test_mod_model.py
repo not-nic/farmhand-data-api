@@ -36,27 +36,6 @@ class TestModModel:
         ):
             ModModel.validate_release_date(invalid_date_string)
 
-    def test_validate_size_with_mb(self):
-        """
-        test the validate size method with an MB value.
-        """
-        result = ModModel.validate_size("10 MB")
-        assert result == 10.0
-
-    def test_validate_size_with_kb(self):
-        """
-        test the validate size method with an KB value.
-        """
-        result = ModModel.validate_size("1024 KB")
-        assert result == 1.0
-
-    def test_validate_size_with_invalid_format(self):
-        """
-        test the validate size method with an invalid value.
-        """
-        with pytest.raises(ValueError):
-            ModModel.validate_size("10 GB")
-
     def test_platforms_are_split_into_list(self):
         """
         test that when given a string of platforms they are split into

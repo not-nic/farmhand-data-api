@@ -2,16 +2,17 @@
 Mod Hub Service Module for generic scraping of the Farming Simulator ModHub
 pages.
 """
-
+import time
 from typing import Optional
 
 import httpx
 from bs4 import BeautifulSoup, Tag
-from httpx import HTTPError
+from httpx import HTTPError, Response
 
 from src.api.core.config import settings
 from src.api.core.logger import logger
 from src.api.core.schema.mods import ModModel
+from src.api.utils import format_file_size, get_filename_from_url
 
 
 class ModHubService:
@@ -19,24 +20,79 @@ class ModHubService:
     Module to scrape the Farming Simulator ModHub and get information about Mods.
     """
 
-    def scrape_mod(self, mod_id: int) -> ModModel:
+    async def download_mod(self, file_url: str) -> bytes:
+        """
+        Downloads a mod from its file_url from the Giants Software CDN.
+        :param file_url: the file to download.
+        :return: (bytes) of the file response.
+        """
+        headers = {
+            "Referer": settings.BASE_FS_URL,
+        }
+
+        start_time = time.monotonic()
+        response = await self._make_request(file_url, headers=headers)
+
+        elapsed_time = time.monotonic() - start_time
+        file_size = len(response.content)
+
+        logger.info(
+            f"Finished downloading {get_filename_from_url(file_url)} "
+            f"in {elapsed_time:.2f} seconds."
+        )
+        logger.info(f"Downloaded file size: {format_file_size(file_size)}")
+
+        return response.content
+
+    async def get_download_url(
+            self,
+            mod_id: Optional[int] = None,
+            page_contents: Optional[BeautifulSoup] = None
+    ) -> Optional[str]:
+        """
+        Gets the download URL either from a mod_id or the page_contents HTML.
+        :param mod_id: the id of the mod to download
+        :param page_contents: the contents of a 'scraped page'
+        :return: mod_url if it exists.
+        """
+
+        if page_contents is None and mod_id is None:
+            raise ValueError("Either 'mod_id' or 'page_contents' must be provided.")
+
+        if page_contents is None:
+            url = self.create_mod_url(mod_id=mod_id)
+            response = await self._make_request(url)
+            page_contents = BeautifulSoup(response.content, "html.parser")
+
+        download_button = page_contents.find(
+            "a",
+            class_="button button-buy button-middle button-no-margin expanded"
+        )
+
+        return download_button['href'] if download_button else None
+
+    async def scrape_mod(self, mod_id: int) -> ModModel:
         """
         Scrape a mod page and return a pydantic model of the mod details
         :param mod_id: the id of the mod to scrape
         :return: (Mod) Pydantic model or raise value error.
         """
         url = self.create_mod_url(mod_id=mod_id)
-        response = self._make_request(url)
+        response = await self._make_request(url)
 
         page_contents = BeautifulSoup(response.content, "html.parser")
 
         mod_name = page_contents.find("h2", class_="column title-label").get_text(strip=True)
         mod_info = page_contents.find("div", class_="table table-game-info")
 
+        file_url = await self.get_download_url(page_contents=page_contents)
+
         if mod_info:
             mod_details = self.get_mod_details(mod_info)
             mod_details["id"] = mod_id
             mod_details["name"] = mod_name
+            mod_details["file_url"] = file_url
+            mod_details["zip_filename"] = get_filename_from_url(file_url)
 
             logger.info(f"Found mod information for {mod_name} ({mod_id})")
 
@@ -52,7 +108,7 @@ class ModHubService:
                 f"as 'mod-info div' was not found."
             )
 
-    def scrape_mods(self, category: Optional[str] = None, page: Optional[str] = None) -> list:
+    async def scrape_mods(self, category: Optional[str] = None, page: Optional[str] = None) -> list:
         """
         Scrape the 'mods' pages and get the ids for each mod displayed
         :param category: the category to get mods for i.e. MapFilters constants
@@ -63,7 +119,7 @@ class ModHubService:
             category_filter=category if category else "", page=page if category else ""
         )
 
-        response = self._make_request(url)
+        response = await self._make_request(url)
 
         page_contents = BeautifulSoup(response.content, "html.parser")
         rows = page_contents.find_all("div", class_="row")
@@ -83,7 +139,7 @@ class ModHubService:
 
         return mod_ids
 
-    def get_pages(self, category_filter: Optional[str] = None) -> list:
+    async def get_pages(self, category_filter: Optional[str] = None) -> list:
         """
         Get the amount of 'mod pages' per category, zero indexed for the URL.
         :param category_filter: the category to filter by.
@@ -91,7 +147,7 @@ class ModHubService:
         """
         url = self.create_mods_url(category_filter=category_filter if category_filter else "")
 
-        response = self._make_request(url)
+        response = await self._make_request(url)
 
         page_contents = BeautifulSoup(response.content, "html.parser")
         pagination = self._get_pagination_element(page_contents)
@@ -208,19 +264,24 @@ class ModHubService:
         return pagination
 
     @staticmethod
-    def _make_request(url: str) -> httpx.Response:
+    async def _make_request(url: str, headers: Optional[dict] = None) -> Response:
         """
         Helper method to make requests to Farming simulator's ModHub.
         :param url: the url to request.
         :return: the response data.
         """
-        try:
-            response = httpx.get(url)
-            response.raise_for_status()
-        except httpx.HTTPStatusError as exc:
-            logger.error(
-                f"Unable to connect to the ModHub - got status code: {exc.response.status_code}"
-            )
-            raise HTTPError(message=f"Request failed with status code: {exc.response.status_code}")
-
+        # Investigate silent error when map takes a while to download,
+        # likely a timeout from Httpx
+        async with httpx.AsyncClient() as client:
+            try:
+                logger.info("Making request to ModHub url: %s", url)
+                response = await client.get(url=url, headers=headers if headers else {})
+                response.raise_for_status()
+            except httpx.HTTPStatusError as exc:
+                logger.error(
+                    f"Unable to connect to the ModHub - got status code: {exc.response.status_code}"
+                )
+                raise HTTPError(
+                    message=f"Request failed with status code: {exc.response.status_code}"
+                )
         return response

@@ -21,16 +21,20 @@ class Map(SqlAlchemyBase):
         author: The Author of the map.
         release_date: The date the map was released.
         created_at: timestamp the map was created.
+        zip_filename: the zip filename of the map.
+        data_uri: the URI location of where this is saved in S3 / MinIO.
 
     Required fields when creating a new map: id and name.
     """
 
     __tablename__ = "maps"
 
-    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
-    category: Mapped[str] = mapped_column(String(100), nullable=True)
+    category: Mapped[str] = mapped_column(String(100), nullable=True, index=True)
     author: Mapped[str] = mapped_column(String(100), nullable=True)
     release_date: Mapped[str] = mapped_column(String(100), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, nullable=False)
     version: Mapped[str] = mapped_column(String(50), default="1.0.0.0", nullable=False)
+    zip_filename: Mapped[str] = mapped_column(String(100), nullable=True)
+    data_uri: Mapped[str] = mapped_column(String(255), nullable=True)
