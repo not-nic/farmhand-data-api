@@ -2,7 +2,8 @@
 Map Service Module currently used for manually scraping map data
 when new maps are released.
 """
-
+import time
+from tempfile import NamedTemporaryFile
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -11,6 +12,9 @@ from src.api.constants import ModHubMapFilters
 from src.api.core.db.models import Map
 from src.api.core.logger import logger
 from src.api.core.repositories import MapRepository
+from src.api.core.schema.maps.maps import MapModel
+from src.api.services.aws_service import AwsService
+from src.api.services.file_parser_service import FileParserService
 from src.api.services.modhub_service import ModHubService
 from src.api.utils import parse_version
 
@@ -32,12 +36,23 @@ class MapService:
         """
         return self.map_repository.all()
 
-    def get_map_by_id(self, id: int) -> Optional[Map]:
+    def get_map_by_id(self, map_id: int) -> Optional[Map]:
         """
         Get a map by its ModHub ID.
         :return: (Optional) the map if it exists.
         """
-        return self.map_repository.get_by_id(id)
+        return self.map_repository.get_by_id(map_id)
+
+    def create_map(
+            self,
+            map_obj: MapModel
+    ) -> Map:
+        """
+        Create a map in the database from its pydantic MapModel.
+        :param map_obj: MapModel attributes to create a map.
+        :return: the created map object.
+        """
+        return self.map_repository.create(**map_obj.model_dump())
 
     async def scrape_maps(self):
         """
@@ -49,15 +64,15 @@ class MapService:
 
         # iterate over all the map filters and make requests to each category's mod page.
         for map_filter in ModHubMapFilters:
-            pages = self.mod_hub_service.get_pages(map_filter)
+            pages = await self.mod_hub_service.get_pages(map_filter)
 
             for page in pages:
-                mod_ids = self.mod_hub_service.scrape_mods(category=map_filter, page=page)
+                mod_ids = await self.mod_hub_service.scrape_mods(category=map_filter, page=page)
                 map_ids.extend(mod_ids)
 
         # iterate over all the collected mod ids and scrape the mod page data.
         for mod_id in map_ids:
-            mod_detail = self.mod_hub_service.scrape_mod(mod_id)
+            mod_detail = await self.mod_hub_service.scrape_mod(mod_id)
 
             # ignore mod if their category is a Prefab.
             if mod_detail.category == "Prefab":
@@ -68,14 +83,8 @@ class MapService:
 
             if not mod_map:
                 logger.info(f"Creating Map {mod_detail.name} ({mod_detail.id})")
-                self.map_repository.create(
-                    id=mod_detail.id,
-                    name=mod_detail.name,
-                    category=mod_detail.category,
-                    author=mod_detail.author,
-                    release_date=mod_detail.release_date,
-                    version=mod_detail.version,
-                )
+                new_map = MapModel(**mod_detail.model_dump(by_alias=False))
+                self.create_map(new_map)
             else:
                 if self.is_newer_version(
                     current_version=mod_map.version, new_version=mod_detail.version
