@@ -36,7 +36,10 @@ class ModHubService:
         elapsed_time = time.monotonic() - start_time
         file_size = len(response.content)
 
-        logger.info(f"Finished downloading {get_filename_from_url(file_url)} in {elapsed_time:.2f} seconds.")
+        logger.info(
+            f"Finished downloading {get_filename_from_url(file_url)} "
+            f"in {elapsed_time:.2f} seconds."
+        )
         logger.info(f"Downloaded file size: {format_file_size(file_size)}")
 
         return response.content
@@ -271,12 +274,14 @@ class ModHubService:
         # likely a timeout from Httpx
         async with httpx.AsyncClient() as client:
             try:
-                logger.info(f"Making request to ModHub url: %s", url)
+                logger.info("Making request to ModHub url: %s", url)
                 response = await client.get(url=url, headers=headers if headers else {})
                 response.raise_for_status()
             except httpx.HTTPStatusError as exc:
                 logger.error(
                     f"Unable to connect to the ModHub - got status code: {exc.response.status_code}"
                 )
-                raise HTTPError(message=f"Request failed with status code: {exc.response.status_code}")
+                raise HTTPError(
+                    message=f"Request failed with status code: {exc.response.status_code}"
+                )
         return response
