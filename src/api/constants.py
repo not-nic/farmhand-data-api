@@ -34,3 +34,15 @@ class GameVersions(StrEnum):
 
     FS_2025 = "fs2025"
     FS_2022 = "fs2022"
+
+
+class ContentType(StrEnum):
+    """
+    Content types supported by Farming Simulator save games.
+    """
+    XML = "application/xml"
+    I3D = "application/xml"
+    PNG = "image/png"
+    JPG = "image/jpeg"
+    JPEG = "image/jpeg"
+    BINARY_OCTET_STREAM = "binary/octet-stream"

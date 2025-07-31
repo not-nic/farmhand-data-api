@@ -7,11 +7,11 @@ from typing import Union
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 
-from src.api.constants import ModHubMapFilters
+from src.api.constants import ContentType
 
 
 def format_pydantic_errors(
-    validation_error: Union[ValidationError | RequestValidationError],
+        validation_error: Union[ValidationError | RequestValidationError],
 ) -> dict:
     """
     Util function to nicely format pydantic validation errors.
@@ -34,36 +34,44 @@ def parse_version(v: str) -> list:
     return [int(part) for part in v.split(".")]
 
 
-def map_category_to_filter(category: str) -> ModHubMapFilters:
+def format_file_size(file_size_bytes: int) -> str:
     """
-    Map a 'Rich text' farming simulator category to its equivalent map
-    filter.
-    :param category: the category to convert.
-    :return: the mapFilter equivalent.
-    :raises: ValueError if category is not recognised.
+    Converts a file size bytes response into a human-readable string (e.g. KB, MB, GB).
+    :param file_size_bytes: File size in bytes.
+    :return: Human-readable file size string.
     """
-    mapping = {
-        "European Maps": ModHubMapFilters.EUROPEAN_MAPS,
-        "North American Maps": ModHubMapFilters.NORTH_AMERICAN_MAPS,
-        "South American Maps": ModHubMapFilters.SOUTH_AMERICAN_MAPS,
-        "Other/Fantasy Maps": ModHubMapFilters.OTHER_MAPS,
-    }
+    if file_size_bytes == 0:
+        return "0 bytes"
 
+    size_name = ("bytes", "KB", "MB", "GB", "TB")
+    i = 0
+    double_size = float(file_size_bytes)
+
+    while double_size >= 1024 and i < len(size_name) - 1:
+        double_size /= 1024
+        i += 1
+
+    return f"{double_size:.2f} {size_name[i]}"
+
+
+def get_filename_from_url(file_url: str) -> str:
+    """
+    Function to get the '.zip' filename from a Giants CDN url.
+    :param file_url: the giants CDN url.
+    :return: string of the .zip filename.
+    """
+    return file_url.split("/")[-1]
+
+
+def extension_to_content_type(extension: str) -> str:
+    """
+    Converts a file extension into its respective content type.
+    :param extension: The file extension (".xml", ".i3d" ".png", ".jpeg")
+    :return: The corresponding MIME content type string.
+    """
+    normalized_ext = extension.lower().lstrip(".")
     try:
-        return mapping[category]
+        return ContentType[normalized_ext.upper()].value
     except KeyError:
-        raise ValueError(f"Unrecognised category: {category}")
+        return ContentType.BINARY_OCTET_STREAM.value
 
-
-def to_snake_case(value: str) -> str:
-    """
-    Convert a camelCase string into snake_case.
-    :param value: the value to convert.
-    :return: the value in snake_case.
-    """
-    result = []
-    for index, char in enumerate(value):
-        if char.isupper() and index != 0:
-            result.append("_")
-        result.append(char.lower())
-    return "".join(result)
