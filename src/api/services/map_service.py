@@ -100,7 +100,75 @@ class MapService:
                         f"(version {mod_map.version})."
                     )
 
-        logger.info("FINISHED: Scraping all maps from the ModHub.")
+        logger.info("Finished scraping all maps from the ModHub.")
+
+    async def download_maps(self):
+        """
+        (temp) download all maps from the maps scraped in the database
+        will take some time to run based on CDN for each mod.
+
+        TODO:
+        - multi-thread this or have it run without async blocking
+        - improve it as a background task
+        - change the method or create a new one to pull new maps and download them
+        - update to download based on version, only download if a version bump.
+        """
+        aws_service = AwsService()
+
+        for map in self.map_repository.all():
+            file_url = await self.mod_hub_service.get_download_url(mod_id=map.id)
+            try:
+                mod_content = await self.mod_hub_service.download_mod(file_url=file_url)
+                aws_service.upload_object(mod_content, map.id, map.zip_filename)
+            except Exception as exc:
+                logger.error("Error downloading mods: %s ", str(exc))
+
+        logger.info("all maps downloaded and uploaded to S3.")
+
+    async def extract_files(self):
+        """
+        (temp) extracts the contents from each map that has been
+        stored in the bucket using the FileParser.
+
+        TODO:
+        - again multi-thread this or have it run without async blocking
+        - improve it as a background task
+        - change the method or create a new method to pull new maps and extract data from them
+        - update to extract based on version, only extract if a version bump.
+        """
+
+        start_time = time.monotonic()
+
+        aws_service = AwsService()
+        maps = self.get_maps()
+
+        for map_obj in maps:
+
+            object_key = f"{map_obj.id}/{map_obj.zip_filename}"
+
+            with NamedTemporaryFile(suffix=".zip") as temp_zip:
+                logger.info(f"object_key: {object_key}")
+                aws_service.download_object(key=object_key, download_location=temp_zip.name)
+
+                file_parser_service = FileParserService()
+                extracted = file_parser_service.extract_zip(temp_zip.name)
+                updated_files = file_parser_service.restructure_files(
+                    extracted.files,
+                    extracted.root_dir
+                )
+
+                try:
+                    logger.info(f"Attempting to upload {len(extracted.files)} files to bucket...")
+                    output_directory = object_key.rsplit(".", 1)[0]
+                    s3_uri = aws_service.upload_directory_contents(
+                        updated_files, extracted.root_dir, output_directory
+                    )
+                    self.map_repository.update(map_obj.id, data_uri=s3_uri)
+                finally:
+                    extracted.temp_dir.cleanup()
+
+        elapsed_time = time.monotonic() - start_time
+        logger.info(f"Extracted data from {len(maps)} maps in {elapsed_time:2f} seconds.")
 
     @staticmethod
     def is_newer_version(current_version: str, new_version: str) -> bool:
