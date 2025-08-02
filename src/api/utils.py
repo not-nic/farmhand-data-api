@@ -74,4 +74,3 @@ def extension_to_content_type(extension: str) -> str:
         return ContentType[normalized_ext.upper()].value
     except KeyError:
         return ContentType.BINARY_OCTET_STREAM.value
-
