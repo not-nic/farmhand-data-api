@@ -2,7 +2,7 @@ from datetime import datetime
 
 import pytest
 
-from src.api.core.schema.mods import ModModel
+from src.api.core.schema.mods import ModDetailModel
 
 
 class TestModModel:
@@ -12,7 +12,7 @@ class TestModModel:
         format it returns the value as a date.
         """
         date_string = "12.03.2025"
-        result = ModModel.validate_release_date(date_string)
+        result = ModDetailModel.validate_release_date(date_string)
         assert result == datetime(2025, 3, 12).date()
 
     def test_validate_release_date_uses_date(self):
@@ -21,7 +21,7 @@ class TestModModel:
         format it returns the value as a date.
         """
         date_string = datetime(2025, 3, 12).date()
-        result = ModModel.validate_release_date(date_string)
+        result = ModDetailModel.validate_release_date(date_string)
         assert result == date_string
 
     def test_validate_release_date_failure(self):
@@ -34,12 +34,12 @@ class TestModModel:
             ValueError,
             match=f"Invalid date format: {invalid_date_string}. Expected format is 'dd.mm.yyyy'.",
         ):
-            ModModel.validate_release_date(invalid_date_string)
+            ModDetailModel.validate_release_date(invalid_date_string)
 
     def test_platforms_are_split_into_list(self):
         """
         test that when given a string of platforms they are split into
         individual keys.
         """
-        result = ModModel.validate_platform("PC/MAC, XBS, PS5")
+        result = ModDetailModel.validate_platform("PC/MAC, XBS, PS5")
         assert result == ["PC/MAC", "XBS", "PS5"]

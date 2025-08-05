@@ -1,5 +1,6 @@
-from .mods import ModModel
+from .mods import ModDetailModel, ModPreviewModel
 
 __all__ = [
-    "ModModel",
+    "ModDetailModel",
+    "ModPreviewModel"
 ]
