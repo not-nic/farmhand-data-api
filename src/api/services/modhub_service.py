@@ -146,9 +146,9 @@ class ModHubService:
 
     async def get_pages(self, category_filter: Optional[str] = None) -> list:
         """
-        Get the amount of 'mod pages' per category, zero indexed for the URL.
-        :param category_filter: the category to filter by.
-        :return: a list of page numbers from first page to last.
+        Get the number of 'mod pages' per category, zero indexed for the URL.
+        :param category_filter: The category to filter by.
+        :return: A list of page numbers from first page to last.
         """
         url = self.create_mods_url(category_filter=category_filter if category_filter else "")
 
@@ -239,7 +239,7 @@ class ModHubService:
         """
         Get the id for the mod based on the href of the 'MORE_INFO' button.
         :param mod_item: The current mod item
-        :return: (int) the id of the mod
+        :return: ModPreviewModel containing the id, title and label.
         """
         mod_label_tag = mod_item.find("div", class_="mod-label")
         mod_label = self._parse_mod_label(
@@ -311,7 +311,7 @@ class ModHubService:
     @staticmethod
     def _parse_mod_label(raw_label: str) -> ModHubLabels:
         """
-        Convert a label from the ModHub (e.g., NEW!, UPDATE!, PREFAB!)
+        Convert a label from the ModHub (e.g. NEW!, UPDATE!, PREFAB!)
         to a label Enum.
         :param raw_label: The label to convert.
         :return: Equivalent 'ModHubLabel' unless no label then returns 'UNTAGGED'.
