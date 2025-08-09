@@ -15,12 +15,6 @@ class BaseSettingsConfig(BaseSettings):
     Shared settings for both Default & Unit Test settings.
     """
 
-    model_config = SettingsConfigDict(
-        env_file="./.env",
-        env_ignore_empty=True,
-        extra="ignore",
-    )
-
     PROJECT_NAME: str = "Farmhand Data API"
     VERSION: str = "0.1"
     API_V1_STR: str = "/api/v1"
@@ -41,6 +35,12 @@ class Settings(BaseSettingsConfig):
     """
     Default settings object for the application.
     """
+
+    model_config = SettingsConfigDict(
+        env_file="./.env",
+        env_ignore_empty=True,
+        extra="ignore",
+    )
 
     POSTGRES_HOST: str
     POSTGRES_PORT: int = 5432
@@ -76,11 +76,19 @@ class TestSettings(BaseSettingsConfig):
     """
     Settings configuration used in unit tests.
     """
-
     DATABASE_URL: str = "sqlite:///./instance/testdb.sqlite"
     TESTING: bool
 
-    BASE_FS_URL: str = "http://farmhand-unit-test.com"
+    AWS_ACCESS_KEY_ID: str = "farmhand-unit-test"
+    AWS_SECRET_ACCESS_KEY: str = "farmhand-unit-test"
+    AWS_REGION: str = "eu-west-2"
+    AWS_S3_BUCKET_NAME: str = "farmhand-unit-testing-bucket"
+
+    MINIO_ENDPOINT_URL: str = ""
+
+    APPLICATION_CONFIG: str = os.path.join("config", "application.yml")
+
+    BASE_FS_URL: str = "https://farmhand-unit-test.com"
     BASE_MODS_URL: str = f"{BASE_FS_URL}/mods.php"
     BASE_MOD_URL: str = f"{BASE_FS_URL}/mod.php"
 
@@ -93,5 +101,6 @@ def get_settings() -> BaseSettingsConfig:
     """
     testing = os.getenv("TESTING", "").lower() == "true"
     return TestSettings() if testing else Settings()
+
 
 settings = get_settings()
