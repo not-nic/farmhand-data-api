@@ -5,9 +5,8 @@ pages.
 import time
 from typing import Optional
 
-import httpx
 from bs4 import BeautifulSoup, Tag
-from httpx import HTTPError, Response
+from httpx import HTTPError, Response, AsyncClient, HTTPStatusError
 
 from src.api.constants import ModHubLabels
 from src.api.core.config import settings
@@ -294,12 +293,12 @@ class ModHubService:
         """
         # Investigate silent error when a map takes a while to download,
         # likely a timeout from Httpx
-        async with httpx.AsyncClient() as client:
+        async with AsyncClient() as client:
             try:
                 logger.debug("Making request to ModHub url: %s", url)
                 response = await client.get(url=url, headers=headers if headers else {})
                 response.raise_for_status()
-            except httpx.HTTPStatusError as exc:
+            except HTTPStatusError as exc:
                 logger.error(
                     f"Unable to connect to the ModHub - got status code: {exc.response.status_code}"
                 )

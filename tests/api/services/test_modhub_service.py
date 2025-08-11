@@ -8,7 +8,7 @@ import pytest
 from fastapi import status
 from httpx import HTTPError
 
-from src.api.core.schema.mods import ModModel
+from src.api.core.schema.mods import ModDetailModel
 from src.api.services.modhub_service import ModHubService
 
 
@@ -16,9 +16,9 @@ from src.api.services.modhub_service import ModHubService
 class TestModHubService:
     async def test_scrape_mock_mod(self, mock_mod_hub_page):
         """
-        Test that when scraping a modhub mod a Mod pydantic model is returned
+        Test that when scraping a ModHub mod a Mod pydantic model is returned
         and is populated with the correct values.
-        :param mock_mod_hub_page: the mock modhub page to scrape.
+        :param mock_mod_hub_page: The mock ModHub page to scrape.
         """
 
         mock_mod_hub_page(file_name="mod.html", status_code=status.HTTP_200_OK)
@@ -26,7 +26,7 @@ class TestModHubService:
         mod_hub_service = ModHubService()
         result = await mod_hub_service.scrape_mod(mod_id=12345)
 
-        assert isinstance(result, ModModel)
+        assert isinstance(result, ModDetailModel)
         assert result.game == "Farming Simulator 25"
         assert result.manufacturer == "Lizard"
         assert result.category == "Yield Improvements - Fertilizer Spreaders"
@@ -39,7 +39,7 @@ class TestModHubService:
     async def test_scrape_mod_page_with_no_mod(self, mock_mod_hub_page):
         """
         Test that a ValueError is raised if the mod_item does not exist.
-        :param mock_mod_hub_page: the mock modhub page to scrape.
+        :param mock_mod_hub_page: The mock modhub page to scrape.
         """
 
         mock_mod_hub_page(file_name="no_mod.html", status_code=status.HTTP_200_OK)
@@ -53,8 +53,8 @@ class TestModHubService:
 
     async def test_scrape_mod_raises_http_error(self, mock_mod_hub_page):
         """
-        Test that if the modhub is down, an HTTP error is raised.
-        :param mock_mod_hub_page: the mock modhub page to scrape.
+        Test that if the ModHub is down, an HTTP error is raised.
+        :param mock_mod_hub_page: The mock ModHub page to scrape.
         """
 
         mock_mod_hub_page(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
@@ -64,9 +64,9 @@ class TestModHubService:
 
     async def test_scrape_mock_mods(self, mock_mod_hub_page):
         """
-        Test scraping a mocked mods page from the modhub and asserting that
+        Test scraping a mocked mods page from the ModHub and asserting that
         all mod_ids (ints) are returned.
-        :param mock_mod_hub_page: the mock modhub page to scrape.
+        :param mock_mod_hub_page: The mock ModHub page to scrape.
         """
 
         mock_mod_hub_page(file_name="mods.html", status_code=status.HTTP_200_OK)
@@ -80,8 +80,8 @@ class TestModHubService:
 
     async def test_scrape_mods_raises_http_error(self, mock_mod_hub_page):
         """
-        Test that if the modhub is down, an HTTP error is raised.
-        :param mock_mod_hub_page: the mock modhub page to scrape.
+        Test that if the ModHub is down, an HTTP error is raised.
+        :param mock_mod_hub_page: The mock ModHub page to scrape.
         """
 
         mock_mod_hub_page(status_code=status.HTTP_503_SERVICE_UNAVAILABLE)
