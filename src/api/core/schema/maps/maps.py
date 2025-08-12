@@ -67,6 +67,8 @@ class MapResponse(BaseModel):
     release_date: date
     version: str
 
+    model_config = ConfigDict(from_attributes=True, arbitrary_types_allowed=True)
+
 
 class MapsResponse(BaseModel):
     """
