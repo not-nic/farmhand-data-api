@@ -1,9 +1,4 @@
-from .maps import (
-    MapResponse,
-    MapsResponse,
-    MapModel,
-    MapUploadResponse
-)
+from .maps import MapModel, MapResponse, MapsResponse, MapUploadResponse
 
 __all__ = [
     "MapModel",
