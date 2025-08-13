@@ -59,7 +59,7 @@ class AwsService:
             logger.debug("Generated pre-signed url for: %s", object_key)
         except ClientError as exc:
             logger.error("Failed to generate pre-signed url for '%s': %s", object_key, str(exc))
-            return None
+            raise
 
         return url
 
@@ -105,7 +105,7 @@ class AwsService:
                 logger.debug("Uploading '%s' to %s ", key, self.bucket)
             except ClientError as exc:
                 logger.warning("Failed to upload '%s' to %s: %s", key, self.bucket, str(exc))
-                continue
+                raise
 
         return f"s3://{self.bucket}/{object_key}"
 
