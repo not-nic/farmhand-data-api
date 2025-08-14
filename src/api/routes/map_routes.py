@@ -13,7 +13,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from src.api.core.dependencies import SessionDep
 from src.api.core.logger import logger
-from src.api.core.schema.maps.maps import MapModel, MapsResponse, MapUploadResponse
+from src.api.core.schema.maps import MapModel, MapResponse, MapsResponse, MapUploadResponse
 from src.api.services.aws_service import AwsService
 from src.api.services.map_service import MapService
 
@@ -40,7 +40,7 @@ async def get_maps(
 async def get_map_by_id(
     map_id: int,
     db: SessionDep,
-) -> MapModel:
+) -> MapResponse:
     """
     Get all stored Farming Simulator maps.
     :param map_id: the ModHub ID of the map.
@@ -53,7 +53,7 @@ async def get_map_by_id(
         if not map:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Map not found")
 
-        return MapModel.model_validate(map)
+        return MapResponse.model_validate(map)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
@@ -64,7 +64,7 @@ async def upload_default_map(map_request: MapModel, db: SessionDep) -> MapUpload
     Upload a .zip file containing a 'default' map e.g. Riverbend springs to be
     ingested into the farmhand-data-api.
     :param map_request:
-    :param db: database session dependency
+    :param db: Database session dependency.
     :return:
     """
     map_service = MapService(db)
@@ -75,4 +75,3 @@ async def upload_default_map(map_request: MapModel, db: SessionDep) -> MapUpload
 
     url = aws_service.generate_pre_signed_url(str(map_obj.id), "put_object")
     return MapUploadResponse(id=map_obj.id, url=url)
-

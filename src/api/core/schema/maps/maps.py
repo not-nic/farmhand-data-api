@@ -56,11 +56,25 @@ class MapModel(BaseModel):
                 )
 
 
+class MapResponse(BaseModel):
+    """
+    Pydantic model for the map response object.
+    """
+    id: int
+    name: str
+    category: FarmhandMapFilters
+    author: str
+    release_date: date
+    version: str
+
+    model_config = ConfigDict(from_attributes=True, arbitrary_types_allowed=True)
+
+
 class MapsResponse(BaseModel):
     """
-    Pydantic model response containing multiple maps.
+    Pydantic model response object containing multiple maps.
     """
-    maps: list[MapModel]
+    maps: list[MapResponse]
     count: int
 
     model_config = ConfigDict(from_attributes=True, arbitrary_types_allowed=True)

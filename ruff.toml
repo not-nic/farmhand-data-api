@@ -33,5 +33,5 @@ ignore = [
 
 [format]
 quote-style = "double"
-skip-magic-trailing-comma = false
+skip-magic-trailing-comma = true
 docstring-code-format = true

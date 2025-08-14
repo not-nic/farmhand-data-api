@@ -46,8 +46,8 @@ class AwsService:
         """
         Generate a pre-signed URL to upload or view a mod in a farmhand bucket
         :param object_key: the object key to store the mod at.
-        :param method_type: get or put object.
-        :param expiration_time: pre-signed URL expiry time
+        :param method_type: A literal of either "get_object" or "put_object".
+        :param expiration_time: Pre-signed URL expiry time
         :return: (str) presigned URL location.
         """
         try:
@@ -59,33 +59,38 @@ class AwsService:
             logger.debug("Generated pre-signed url for: %s", object_key)
         except ClientError as exc:
             logger.error("Failed to generate pre-signed url for '%s': %s", object_key, str(exc))
-            return None
+            raise
 
         return url
 
     def upload_object(self, file_obj: bytes, mod_id: int, file_name: str) -> str:
         """
         Method to upload a file object to a 'farmhand' bucket.
-        :param file_obj: the bytes of the file object.
-        :param mod_id: the 'id' of the mod from the ModHub.
-        :param file_name: the filename of the object.
-        :return: a S3 URI of the location.
+        :param file_obj: The bytes of the file object.
+        :param mod_id: The 'id' of the mod from the ModHub.
+        :param file_name: The filename of the object.
+        :return: A S3 URI of the location.
         """
         object_key = f"{mod_id}/{file_name}"
         try:
             self.s3.upload_fileobj(BytesIO(file_obj), self.bucket, object_key)
             return f"s3://{self.bucket}/{object_key}"
         except ClientError as exc:
-            logger.warning("Failed to upload '%s' to %s: %s", object_key, self.bucket, str(exc))
+            logger.warning(
+                "Failed to upload '%s' to %s. Reason: %s",
+                object_key,
+                self.bucket,
+                str(exc)
+            )
             raise
 
     def upload_directory_contents(self, files: list[Path], root_dir: Path, object_key: str) -> str:
         """
         Function to upload the contents of a directory to a bucket.
-        :param files: the files to be uploaded
-        :param root_dir: the root directory.
-        :param object_key: the key of the object in S3.
-        :return: a S3 URI of the base of the uploaded directory.
+        :param files: The files to be uploaded.
+        :param root_dir: The root directory of the zip file.
+        :param object_key: The key of the object in S3.
+        :return: A S3 URI of the uploaded directory.
         """
         for file_path in files:
             relative_path = file_path.relative_to(root_dir)
@@ -97,7 +102,7 @@ class AwsService:
                     key,
                     ExtraArgs={"ContentType": extension_to_content_type(relative_path.suffix)}
                 )
-                logger.info("Uploading '%s' to %s ", key, self.bucket)
+                logger.debug("Uploading '%s' to %s ", key, self.bucket)
             except ClientError as exc:
                 logger.warning("Failed to upload '%s' to %s: %s", key, self.bucket, str(exc))
                 raise
@@ -107,8 +112,8 @@ class AwsService:
     def download_object(self, key, download_location: Union[PathLike, str]) -> None:
         """
         Function to download an object from S3 and save it to a temporary file.
-        :param key: the key of the object to download
-        :param download_location: the tempfile in which the object is saved.
+        :param key: The key of the S3 object to download.
+        :param download_location: The temp-file in which the object is saved.
         """
         try:
             self.s3.download_file(Bucket=self.bucket, Key=key, Filename=download_location)

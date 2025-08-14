@@ -5,13 +5,13 @@ pages.
 import time
 from typing import Optional
 
-import httpx
 from bs4 import BeautifulSoup, Tag
-from httpx import HTTPError, Response
+from httpx import AsyncClient, HTTPError, HTTPStatusError, Response
 
+from src.api.constants import ModHubLabels
 from src.api.core.config import settings
 from src.api.core.logger import logger
-from src.api.core.schema.mods import ModModel
+from src.api.core.schema.mods import ModDetailModel, ModPreviewModel
 from src.api.utils import format_file_size, get_filename_from_url
 
 
@@ -23,7 +23,7 @@ class ModHubService:
     async def download_mod(self, file_url: str) -> bytes:
         """
         Downloads a mod from its file_url from the Giants Software CDN.
-        :param file_url: the file to download.
+        :param file_url: The file to download.
         :return: (bytes) of the file response.
         """
         headers = {
@@ -51,7 +51,7 @@ class ModHubService:
     ) -> Optional[str]:
         """
         Gets the download URL either from a mod_id or the page_contents HTML.
-        :param mod_id: the id of the mod to download
+        :param mod_id: The id of the mod to download
         :param page_contents: the contents of a 'scraped page'
         :return: mod_url if it exists.
         """
@@ -71,7 +71,7 @@ class ModHubService:
 
         return download_button['href'] if download_button else None
 
-    async def scrape_mod(self, mod_id: int) -> ModModel:
+    async def scrape_mod(self, mod_id: int) -> ModDetailModel:
         """
         Scrape a mod page and return a pydantic model of the mod details
         :param mod_id: the id of the mod to scrape
@@ -94,9 +94,9 @@ class ModHubService:
             mod_details["file_url"] = file_url
             mod_details["zip_filename"] = get_filename_from_url(file_url)
 
-            logger.info(f"Found mod information for {mod_name} ({mod_id})")
+            logger.info(f"Found mod details for '{mod_name}' ({mod_id})")
 
-            mod_detail = ModModel(**mod_details)
+            mod_detail = ModDetailModel(**mod_details)
             return mod_detail
         else:
             logger.warning(
@@ -108,12 +108,16 @@ class ModHubService:
                 f"as 'mod-info div' was not found."
             )
 
-    async def scrape_mods(self, category: Optional[str] = None, page: Optional[str] = None) -> list:
+    async def scrape_mods(
+            self,
+            category: Optional[str] = None,
+            page: Optional[str] = None
+    ) -> list[ModPreviewModel]:
         """
         Scrape the 'mods' pages and get the ids for each mod displayed
         :param category: the category to get mods for i.e. MapFilters constants
         :param page: the page to get mods from.
-        :return: a list of mod_ids scraped from the page.
+        :return: A list of mod_ids scraped from the page.
         """
         url = self.create_mods_url(
             category_filter=category if category else "", page=page if category else ""
@@ -130,20 +134,20 @@ class ModHubService:
         for row in rows:
             mod_item_containers = row.find_all("div", class_="medium-6 large-3 columns")
 
-            # loop over each container and get the 'mod-item' div and get the id for the
-            # mod page from the 'MORE INFO' tag.
+            # loop over each container and get the 'mod-item' div and get the mod 'id'
+            # from the 'MORE INFO' tag.
             for container in mod_item_containers:
                 mod_item = container.find("div", class_="mod-item")
                 if mod_item:
-                    mod_ids.append(self.get_mod_id(mod_item))
+                    mod_ids.append(self.get_mod_preview_details(mod_item))
 
         return mod_ids
 
     async def get_pages(self, category_filter: Optional[str] = None) -> list:
         """
-        Get the amount of 'mod pages' per category, zero indexed for the URL.
-        :param category_filter: the category to filter by.
-        :return: a list of page numbers from first page to last.
+        Get the number of 'mod pages' per category, zero indexed for the URL.
+        :param category_filter: The category to filter by.
+        :return: A list of page numbers from first page to last.
         """
         url = self.create_mods_url(category_filter=category_filter if category_filter else "")
 
@@ -168,14 +172,14 @@ class ModHubService:
                 page_numbers.append(int(number))
 
         if not page_numbers:
-            logger.info("No page numbers within the pagination DOM object - returning empty list.")
+            logger.debug("No page numbers within the pagination DOM object - returning empty list.")
             return []
 
         # take one away to zero index the first and last page to match 'pages'.
         first_page = min(page_numbers) - 1
         last_page = max(page_numbers) - 1
 
-        logger.info(
+        logger.debug(
             f"found pages returning all pages between first page: "
             f"'{first_page}' and last page: '{last_page}'"
         )
@@ -230,28 +234,45 @@ class ModHubService:
 
         return info
 
-    @staticmethod
-    def get_mod_id(mod_item: Tag) -> Optional[int]:
+    def get_mod_preview_details(self, mod_item: Tag) -> Optional[ModPreviewModel]:
         """
         Get the id for the mod based on the href of the 'MORE_INFO' button.
-        :param mod_item: the current mod item
-        :return: (int) the id of the mod
+        :param mod_item: The current mod item
+        :return: ModPreviewModel containing the id, title and label.
         """
-        more_info_tag = mod_item.find("a", class_="button-buy")
-        if more_info_tag:
-            href = more_info_tag.get("href", "")
-            if "mod_id=" in href:
-                mod_id = href.split("mod_id=")[1].split("&")[0]
-                return int(mod_id)
+        mod_label_tag = mod_item.find("div", class_="mod-label")
+        mod_label = self._parse_mod_label(
+            mod_label_tag.text.strip() if mod_label_tag else "untagged"
+        )
+        logger.debug(f"mod label: {mod_label}")
 
-        return None
+        mod_content = mod_item.find("div", class_="mod-item__content")
+        mod_title_tag = mod_content.find("h4") if mod_content else None
+        mod_title = mod_title_tag.text.strip() if mod_title_tag else "Unknown Title"
+        logger.debug(f"mod title: {mod_title}")
+
+        more_info_tag = mod_item.find("a", class_="button-buy")
+        href = more_info_tag.get("href", "") if more_info_tag else ""
+
+        mod_id = None
+        if "mod_id=" in href:
+            try:
+                mod_id = int(href.split("mod_id=")[1].split("&")[0])
+            except (ValueError, IndexError):
+                logger.info(f"Failed to extract mod_id from href: {href}")
+
+        if mod_id is None:
+            logger.info("Mod ID could not be found; skipping mod.")
+            return None
+
+        return ModPreviewModel(id=mod_id, name=mod_title, label=mod_label)
 
     @staticmethod
     def _get_pagination_element(page_contents: BeautifulSoup) -> Tag:
         """
-        get the pagination element containing page numbers from the ModHub website.
-        :param page_contents: the contents of the page
-        :return: the pagination page element if it exists.
+        Get the pagination element containing page numbers from the ModHub website.
+        :param page_contents: The contents of the page.
+        :return: The pagination page element if it exists.
         """
         # Find the pagination content
         pagination = page_contents.find("ul", class_="pagination")
@@ -267,17 +288,17 @@ class ModHubService:
     async def _make_request(url: str, headers: Optional[dict] = None) -> Response:
         """
         Helper method to make requests to Farming simulator's ModHub.
-        :param url: the url to request.
-        :return: the response data.
+        :param url: The url to request.
+        :return: The response data.
         """
-        # Investigate silent error when map takes a while to download,
+        # Investigate silent error when a map takes a while to download,
         # likely a timeout from Httpx
-        async with httpx.AsyncClient() as client:
+        async with AsyncClient() as client:
             try:
-                logger.info("Making request to ModHub url: %s", url)
+                logger.debug("Making request to ModHub url: %s", url)
                 response = await client.get(url=url, headers=headers if headers else {})
                 response.raise_for_status()
-            except httpx.HTTPStatusError as exc:
+            except HTTPStatusError as exc:
                 logger.error(
                     f"Unable to connect to the ModHub - got status code: {exc.response.status_code}"
                 )
@@ -285,3 +306,17 @@ class ModHubService:
                     message=f"Request failed with status code: {exc.response.status_code}"
                 )
         return response
+
+    @staticmethod
+    def _parse_mod_label(raw_label: str) -> ModHubLabels:
+        """
+        Convert a label from the ModHub (e.g. NEW!, UPDATE!, PREFAB!)
+        to a label Enum.
+        :param raw_label: The label to convert.
+        :return: Equivalent 'ModHubLabel' unless no label then returns 'UNTAGGED'.
+        """
+        try:
+            return ModHubLabels(raw_label)
+        except ValueError:
+            logger.debug("Invalid or no mod label, using: %s", ModHubLabels.UNTAGGED)
+            return ModHubLabels.UNTAGGED

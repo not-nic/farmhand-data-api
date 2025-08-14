@@ -3,8 +3,10 @@ from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 
+from src.api.constants import ModHubLabels
 
-class ModModel(BaseModel):
+
+class ModDetailModel(BaseModel):
     """
     Pydantic model for a Farming Simulator Mod Hub mod.
     """
@@ -44,3 +46,12 @@ class ModModel(BaseModel):
         :return: platforms as a list
         """
         return [platform.strip() for platform in value.split(",")]
+
+
+class ModPreviewModel(BaseModel):
+    """
+    Pydantic Model for a mod preview found on the 'mods' pages.
+    """
+    id: int
+    name: str
+    label: ModHubLabels

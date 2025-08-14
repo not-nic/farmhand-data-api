@@ -16,6 +16,17 @@ class ModHubMapFilters(StrEnum):
     OTHER_MAPS = "mapOthers"
 
 
+class ModHubLabels(StrEnum):
+    """
+    ModHub mod labels.
+    """
+
+    NEW = "NEW!"
+    PREFAB = "PREFAB!"
+    UPDATE = "UPDATE!"
+    UNTAGGED = "untagged"
+
+
 class FarmhandMapFilters(StrEnum):
     """
     Map filters used internally within the farmhand application.
