@@ -4,13 +4,12 @@ Module containing unit tests for the AWS Service
 """
 
 from typing import Literal
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 from botocore.exceptions import ClientError
 
 from src.api.services.aws_service import AwsService
-from tests.conftest import mock_s3
 
 
 class TestAwsService:
@@ -41,7 +40,11 @@ class TestAwsService:
         )
 
     @pytest.mark.parametrize("method_type", ["get_object", "put_object"])
-    def test_generate_pre_signed_url(self, mock_s3, method_type: Literal["get_object", "put_object"]):
+    def test_generate_pre_signed_url(
+            self,
+            mock_s3,
+            method_type: Literal["get_object", "put_object"]
+    ):
         """
         Test that a pre-signed GET and PUT url can be generated
         and assert that the standard parameters exist in the generated
@@ -60,7 +63,13 @@ class TestAwsService:
         parsed = urlparse(url)
         query = parse_qs(parsed.query)
 
-        expected_params = ["X-Amz-Algorithm", "X-Amz-Credential", "X-Amz-Date", "X-Amz-Expires", "X-Amz-Signature"]
+        expected_params = [
+            "X-Amz-Algorithm",
+            "X-Amz-Credential",
+            "X-Amz-Date",
+            "X-Amz-Expires",
+            "X-Amz-Signature"
+        ]
 
         for param in expected_params:
             assert param in query
@@ -141,7 +150,13 @@ class TestAwsService:
         objects = response.get("Contents", [])
         assert len(objects) == 1
 
-    def test_upload_directory_contents_raises_error(self, mocker, mock_s3, sample_files, mock_s3_error):
+    def test_upload_directory_contents_raises_error(
+            self,
+            mocker,
+            mock_s3,
+            sample_files,
+            mock_s3_error
+    ):
         """
         Test the aws_service raises a client error when failing to upload
         the contents of a directory.

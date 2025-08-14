@@ -226,7 +226,12 @@ class TestMapService:
         expected_map: Map = map_repository.get_by_id(mod_detail.id)
         assert expected_map.version == mod_detail.version
 
-    async def test_scrape_map_details_with_newer_version(self, db, mod_detail, mock_mod_hub_service):
+    async def test_scrape_map_details_with_newer_version(
+            self,
+            db,
+            mod_detail,
+            mock_mod_hub_service
+    ):
         """
         Test that when an already saved map has a new version, it's re-scraped
         and updated.
@@ -273,7 +278,12 @@ class TestMapService:
 
         assert len(new_maps) == 0
 
-    async def test_check_new_maps_appends_new_or_updated_maps(self, db, mock_mod_hub_service, mocker):
+    async def test_check_new_maps_appends_new_or_updated_maps(
+            self,
+            db,
+            mock_mod_hub_service,
+            mocker
+    ):
         """
         Test that when checking new maps new, updated and untagged maps
         that do not exist in the database are appended and returned.
@@ -392,7 +402,9 @@ class TestMapService:
         :param mock_mod_hub_service: Fixture containing a mocked instance of the ModHub Service.
         """
 
-        mock_mod_hub_service.get_download_url.side_effect = HTTPError("Unable to connect to the ModHub.")
+        mock_mod_hub_service.get_download_url.side_effect = HTTPError(
+            "Unable to connect to the ModHub."
+        )
 
         with pytest.raises(HTTPError):
             map_service = MapService(db, mod_hub_service=mock_mod_hub_service)
@@ -491,7 +503,12 @@ class TestMapService:
 
         assert expected_map.data_uri == f"s3://{bucket}/{mod_detail.id}/{map_name}"
 
-    async def test_map_service_raises_map_processing_error(self, db, mock_s3, mock_file_parser_service):
+    async def test_map_service_raises_map_processing_error(
+            self,
+            db,
+            mock_s3,
+            mock_file_parser_service
+    ):
         """
         Test that the map service captures a BadZipFile error
         and raises a 'MapProcessingError'.
@@ -500,7 +517,7 @@ class TestMapService:
         :param mock_file_parser_service: Fixture containing a mocked file parser service.
         """
         client, bucket = mock_s3
-        object_key = f"999999/bad.zip"
+        object_key = "999999/bad.zip"
         client.put_object(Bucket=bucket, Key=object_key)
 
         mock_file_parser_service.extract_zip.side_effect = BadZipFile("Corrupted zip")
@@ -522,7 +539,7 @@ class TestMapService:
         :param mock_file_parser_service: Fixture containing a mocked file parser service.
         """
         client, bucket = mock_s3
-        object_key = f"999999/no_file.zip"
+        object_key = "999999/no_file.zip"
         client.put_object(Bucket=bucket, Key=object_key)
 
         mock_file_parser_service.extract_zip.side_effect = FileNotFoundError("Missing file")

@@ -1,9 +1,10 @@
 """
 Pytest conftest.py module containing test setup, TestClient Fixtures and other mocks.
 """
+from collections.abc import Generator
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Optional, Any, Generator
+from typing import Any, Optional
 
 import boto3
 import pytest
@@ -125,7 +126,8 @@ def mock_mod_hub_service(mocker, mod_detail) -> ModHubService:
     mock_service.scrape_mod.return_value = mod_detail
     mock_service.scrape_mods.return_value = []
     mock_service.download_mod.return_value = b"zip-file-contents"
-    mock_service.get_download_url.return_value = f"{settings.BASE_FS_URL}/download/{mod_detail.zip_filename}"
+    mock_service.get_download_url.return_value = (f"{settings.BASE_FS_URL}/download/"
+                                                  f"{mod_detail.zip_filename}")
 
     mocker.patch("src.api.services.modhub_service.ModHubService", new=mock_service)
 
