@@ -56,9 +56,9 @@ def format_file_size(file_size_bytes: int) -> str:
 
 def get_filename_from_url(file_url: str) -> str:
     """
-    Function to get the '.zip' filename from a Giants CDN url.
-    :param file_url: the giants CDN url.
-    :return: string of the .zip filename.
+    Function to get the '.zip' filename from a 'Giants' CDN url.
+    :param file_url: The giants CDN url.
+    :return: String of the .zip filename.
     """
     return file_url.split("/")[-1]
 
