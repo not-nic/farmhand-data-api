@@ -13,6 +13,7 @@ from httpx import HTTPError
 from sqlalchemy.orm import Session
 
 from src.api.constants import ModHubLabels, ModHubMapFilters
+from src.api.core.config import settings
 from src.api.core.db.models import Map
 from src.api.core.exceptions import MapProcessingError
 from src.api.core.logger import logger
@@ -80,10 +81,27 @@ class MapService:
         new_maps = await self.check_for_new_maps()
 
         for map_preview in new_maps:
-            map_obj: Map = await self.scrape_map_details(map_preview.id)
+            try:
+                map_obj: Map = await self.scrape_map_details(map_preview.id)
+            except Exception as e:
+                logger.warning(
+                    "Skipping map '%s' (%d) - failed to scrape details: %s",
+                    map_preview.name, map_preview.id, e
+                )
+                continue
 
-            await self.download_map(map_obj.id, map_obj.zip_filename)
-            self.extract_map_files(map_obj.id, map_obj.zip_filename)
+            if map_obj is None:
+                continue
+
+            if settings.ENABLE_MAP_DOWNLOADS:
+                await self.download_map(map_obj.id, map_obj.zip_filename)
+                self.extract_map_files(map_obj.id, map_obj.zip_filename)
+            else:
+                logger.info(
+                    "Map downloads disabled — skipping download and extraction for '%s' (%d).",
+                    map_obj.name,
+                    map_obj.id
+                )
 
         if not new_maps:
             logger.info("All scraped and downloaded maps up to date.")
@@ -102,8 +120,11 @@ class MapService:
         """
         mod_detail = await self.mod_hub_service.scrape_mod(map_id)
 
-        if mod_detail.category == "Prefab":
-            logger.warning("Found a prefab within one of the maps categories, ignoring...")
+        if mod_detail.category in ("Prefab", "Gameplay"):
+            logger.warning(
+                "Skipping mod '%s' (%d) - invalid category: '%s'",
+                mod_detail.name, mod_detail.id, mod_detail.category
+            )
             return None
 
         mod_map = self.map_repository.get_by_id(map_id)

@@ -139,7 +139,9 @@ class ModHubService:
             for container in mod_item_containers:
                 mod_item = container.find("div", class_="mod-item")
                 if mod_item:
-                    mod_ids.append(self.get_mod_preview_details(mod_item))
+                    mod_preview = self.get_mod_preview_details(mod_item)
+                    if mod_preview is not None:
+                        mod_ids.append(mod_preview)
 
         return mod_ids
 

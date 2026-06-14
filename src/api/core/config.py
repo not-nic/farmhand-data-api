@@ -23,6 +23,7 @@ class BaseSettingsConfig(BaseSettings):
     )
 
     LOG_LEVEL: str = "INFO"
+    ENABLE_MAP_DOWNLOADS: bool = False
 
     BASE_FS_URL: str = "https://www.farming-simulator.com"
     BASE_MODS_URL: str = f"{BASE_FS_URL}/mods.php"
