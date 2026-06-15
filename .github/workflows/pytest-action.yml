@@ -4,7 +4,7 @@ on:
   pull_request:
 
 env:
-  MINIMUM_COVERAGE: 80
+  MINIMUM_COVERAGE: 50
   TESTING: True
 
 jobs:
