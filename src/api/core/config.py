@@ -3,7 +3,7 @@ Module containing the config / settings for the Farmhand Data API.
 """
 
 import os
-from typing import Literal, Optional
+from typing import Literal
 
 from pydantic import PostgresDsn, computed_field
 from pydantic_core import MultiHostUrl
@@ -23,12 +23,11 @@ class BaseSettingsConfig(BaseSettings):
     )
 
     LOG_LEVEL: str = "INFO"
+    ENABLE_MAP_DOWNLOADS: bool = False
 
     BASE_FS_URL: str = "https://www.farming-simulator.com"
     BASE_MODS_URL: str = f"{BASE_FS_URL}/mods.php"
     BASE_MOD_URL: str = f"{BASE_FS_URL}/mod.php"
-
-    TESTING: bool
 
 
 class Settings(BaseSettingsConfig):
@@ -47,15 +46,15 @@ class Settings(BaseSettingsConfig):
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str
-    ENVIRONMENT: Literal["development", "testing", "production"] = "development"
-    TESTING: bool
+    ENVIRONMENT: Literal["dev", "testing", "production"] = "dev"
+    TESTING: bool = False
 
     AWS_ACCESS_KEY_ID: str
     AWS_SECRET_ACCESS_KEY: str
     AWS_REGION: str
     AWS_S3_BUCKET_NAME: str
 
-    MINIO_ENDPOINT_URL: Optional[str] = None
+    MINIO_ENDPOINT_URL: str | None = None
 
     APPLICATION_CONFIG: str = os.path.join("config", "application.yml")
 
@@ -63,7 +62,7 @@ class Settings(BaseSettingsConfig):
     @property
     def DATABASE_URL(self) -> PostgresDsn:
         return MultiHostUrl.build(
-            scheme="postgresql",
+            scheme="postgresql+psycopg",
             username=self.POSTGRES_USER,
             password=self.POSTGRES_PASSWORD,
             host=self.POSTGRES_HOST,
@@ -76,8 +75,9 @@ class TestSettings(BaseSettingsConfig):
     """
     Settings configuration used in unit tests.
     """
+
     DATABASE_URL: str = "sqlite:///./instance/testdb.sqlite"
-    TESTING: bool
+    TESTING: bool = True
 
     AWS_ACCESS_KEY_ID: str = "farmhand-unit-test"
     AWS_SECRET_ACCESS_KEY: str = "farmhand-unit-test"

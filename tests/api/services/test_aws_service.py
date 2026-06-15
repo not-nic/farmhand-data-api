@@ -41,9 +41,9 @@ class TestAwsService:
 
     @pytest.mark.parametrize("method_type", ["get_object", "put_object"])
     def test_generate_pre_signed_url(
-            self,
-            mock_s3,
-            method_type: Literal["get_object", "put_object"]
+        self,
+        mock_s3,
+        method_type: Literal["get_object", "put_object"],
     ):
         """
         Test that a pre-signed GET and PUT url can be generated
@@ -68,7 +68,7 @@ class TestAwsService:
             "X-Amz-Credential",
             "X-Amz-Date",
             "X-Amz-Expires",
-            "X-Amz-Signature"
+            "X-Amz-Signature",
         ]
 
         for param in expected_params:
@@ -151,11 +151,7 @@ class TestAwsService:
         assert len(objects) == 1
 
     def test_upload_directory_contents_raises_error(
-            self,
-            mocker,
-            mock_s3,
-            sample_files,
-            mock_s3_error
+        self, mocker, mock_s3, sample_files, mock_s3_error
     ):
         """
         Test the aws_service raises a client error when failing to upload
@@ -167,9 +163,7 @@ class TestAwsService:
         root_dir, files = sample_files
 
         aws_service = AwsService()
-        mocker.patch.object(
-            aws_service.s3, "upload_file", side_effect=mock_s3_error
-        )
+        mocker.patch.object(aws_service.s3, "upload_file", side_effect=mock_s3_error)
 
         with pytest.raises(ClientError, match="Error uploading object"):
             aws_service.upload_directory_contents(

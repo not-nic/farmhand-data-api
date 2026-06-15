@@ -8,16 +8,12 @@ e.g. getting all fields that share the same crop it should be written
 as a method within its own <model_name>Repository.
 """
 
-from typing import Generic, Optional, TypeVar, Union
 from uuid import UUID
 
-from sqlalchemy.ext.declarative import DeclarativeMeta
-from sqlalchemy.orm import Session
-
-T = TypeVar("T", bound=DeclarativeMeta)
+from sqlalchemy.orm import DeclarativeBase, Session
 
 
-class Repository(Generic[T]):
+class Repository[T: DeclarativeBase]:
     """
     Base Repository class for generic CRUD database operations.
     """
@@ -45,7 +41,7 @@ class Repository(Generic[T]):
         self.db.refresh(db_obj)
         return db_obj
 
-    def get_by_id(self, id: Union[UUID, int]) -> Optional[T]:
+    def get_by_id(self, id: UUID | int) -> T | None:
         """
         Get a single record from DB by its ID.
         :param id: id of the item to get
@@ -53,7 +49,7 @@ class Repository(Generic[T]):
         """
         return self.db.get(self.model, id)
 
-    def delete(self, id: Union[UUID, int]) -> None:
+    def delete(self, id: UUID | int) -> None:
         """
         delete an object by an ID
         :param id: the id of the record to be deleted
@@ -64,7 +60,7 @@ class Repository(Generic[T]):
             self.db.delete(obj)
             self.db.commit()
 
-    def update(self, id: Union[UUID, int], **kwargs) -> Optional[T]:
+    def update(self, id: UUID | int, **kwargs) -> T | None:
         """
         Update an existing record in the database.
         :param id: the id of the record to update.

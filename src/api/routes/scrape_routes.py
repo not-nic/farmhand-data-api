@@ -30,10 +30,7 @@ async def get_maps(db: SessionDep) -> dict:
     try:
         await map_service.get_new_maps()
     except Exception as exc:
-        raise HTTPException(
-            detail=str(exc),
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR
-        )
+        raise HTTPException(detail=str(exc), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
     return {"message": "Successfully scraped and downloaded new maps from the ModHub."}
 
@@ -47,4 +44,3 @@ async def scrape_mod(mod_id: int) -> ModDetailModel:
     """
     mod_hub_service = ModHubService()
     return await mod_hub_service.scrape_mod(mod_id)
-

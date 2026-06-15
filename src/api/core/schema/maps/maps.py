@@ -3,7 +3,6 @@ Module containing Map pydantic models.
 """
 
 from datetime import date
-from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
@@ -22,7 +21,7 @@ class MapModel(BaseModel):
     release_date: date
     version: str
     zip_filename: str
-    data_uri: Optional[str] = None
+    data_uri: str | None = None
 
     model_config = ConfigDict(from_attributes=True, arbitrary_types_allowed=True)
 
@@ -44,7 +43,7 @@ class MapModel(BaseModel):
                 "European Maps": FarmhandMapFilters.EUROPEAN_MAPS,
                 "North American Maps": FarmhandMapFilters.NORTH_AMERICAN_MAPS,
                 "South American Maps": FarmhandMapFilters.SOUTH_AMERICAN_MAPS,
-                "Other/Fantasy Maps": FarmhandMapFilters.OTHER_MAPS
+                "Other/Fantasy Maps": FarmhandMapFilters.OTHER_MAPS,
             }
 
             try:
@@ -60,6 +59,7 @@ class MapResponse(BaseModel):
     """
     Pydantic model for the map response object.
     """
+
     id: int
     name: str
     category: FarmhandMapFilters
@@ -74,6 +74,7 @@ class MapsResponse(BaseModel):
     """
     Pydantic model response object containing multiple maps.
     """
+
     maps: list[MapResponse]
     count: int
 
@@ -84,5 +85,6 @@ class MapUploadResponse(BaseModel):
     """
     Pydantic model for pre-signed URL response.
     """
+
     id: int
     url: str

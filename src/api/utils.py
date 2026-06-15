@@ -2,8 +2,6 @@
 Farmhand util functions.
 """
 
-from typing import Union
-
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 
@@ -11,7 +9,7 @@ from src.api.constants import ContentType
 
 
 def format_pydantic_errors(
-        validation_error: Union[ValidationError | RequestValidationError],
+    validation_error: ValidationError | RequestValidationError,
 ) -> dict:
     """
     Util function to nicely format pydantic validation errors.

@@ -1,5 +1,4 @@
 from datetime import date, datetime
-from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -19,10 +18,10 @@ class ModDetailModel(BaseModel):
     author: str = Field(..., alias="Author")
     size: str = Field(..., alias="Size")
     version: str = Field(..., alias="Version")
-    release_date: Optional[date | str] = Field(..., alias="Released")
+    release_date: date | str | None = Field(..., alias="Released")
     file_url: str
     zip_filename: str
-    platform: Optional[list | str] = Field(..., alias="Platform")
+    platform: list | str | None = Field(..., alias="Platform")
 
     @field_validator("release_date")
     def validate_release_date(cls, value):
@@ -52,6 +51,7 @@ class ModPreviewModel(BaseModel):
     """
     Pydantic Model for a mod preview found on the 'mods' pages.
     """
+
     id: int
     name: str
     label: ModHubLabels

@@ -5,7 +5,6 @@ when new maps are released.
 
 import time
 from tempfile import NamedTemporaryFile
-from typing import Optional
 from zipfile import BadZipFile
 
 from botocore.exceptions import ClientError
@@ -13,6 +12,7 @@ from httpx import HTTPError
 from sqlalchemy.orm import Session
 
 from src.api.constants import ModHubLabels, ModHubMapFilters
+from src.api.core.config import settings
 from src.api.core.db.models import Map
 from src.api.core.exceptions import MapProcessingError
 from src.api.core.logger import logger
@@ -32,11 +32,11 @@ class MapService:
     """
 
     def __init__(
-            self,
-            db: Session,
-            mod_hub_service: Optional[ModHubService] = None,
-            aws_service: Optional[AwsService] = None,
-            file_parser_service: Optional[FileParserService] = None
+        self,
+        db: Session,
+        mod_hub_service: ModHubService | None = None,
+        aws_service: AwsService | None = None,
+        file_parser_service: FileParserService | None = None,
     ):
         """
         Constructor for the map service.
@@ -57,7 +57,7 @@ class MapService:
         """
         return self.map_repository.all()
 
-    def get_map_by_id(self, map_id: int) -> Optional[Map]:
+    def get_map_by_id(self, map_id: int) -> Map | None:
         """
         Get a map by its ModHub ID.
         :return: (Optional) the map if it exists.
@@ -80,20 +80,38 @@ class MapService:
         new_maps = await self.check_for_new_maps()
 
         for map_preview in new_maps:
-            map_obj: Map = await self.scrape_map_details(map_preview.id)
+            try:
+                map_obj: Map = await self.scrape_map_details(map_preview.id)
+            except Exception as e:
+                logger.warning(
+                    "Skipping map '%s' (%d) - failed to scrape details: %s",
+                    map_preview.name,
+                    map_preview.id,
+                    e,
+                )
+                continue
 
-            await self.download_map(map_obj.id, map_obj.zip_filename)
-            self.extract_map_files(map_obj.id, map_obj.zip_filename)
+            if map_obj is None:
+                continue
+
+            if settings.ENABLE_MAP_DOWNLOADS:
+                await self.download_map(map_obj.id, map_obj.zip_filename)
+                self.extract_map_files(map_obj.id, map_obj.zip_filename)
+            else:
+                logger.info(
+                    "Map downloads disabled — skipping download and extraction for '%s' (%d).",
+                    map_obj.name,
+                    map_obj.id,
+                )
 
         if not new_maps:
             logger.info("All scraped and downloaded maps up to date.")
         else:
             logger.info(
-                "Successfully scraped and downloaded '%d' maps from the ModHub.",
-                len(new_maps)
+                "Successfully scraped and downloaded '%d' maps from the ModHub.", len(new_maps)
             )
 
-    async def scrape_map_details(self, map_id: int) -> Optional[Map]:
+    async def scrape_map_details(self, map_id: int) -> Map | None:
         """
         Scrape a map from the ModHub and save or update its data based on the map's
         version.
@@ -102,8 +120,13 @@ class MapService:
         """
         mod_detail = await self.mod_hub_service.scrape_mod(map_id)
 
-        if mod_detail.category == "Prefab":
-            logger.warning("Found a prefab within one of the maps categories, ignoring...")
+        if mod_detail.category in ("Prefab", "Gameplay"):
+            logger.warning(
+                "Skipping mod '%s' (%d) - invalid category: '%s'",
+                mod_detail.name,
+                mod_detail.id,
+                mod_detail.category,
+            )
             return None
 
         mod_map = self.map_repository.get_by_id(map_id)
@@ -114,7 +137,7 @@ class MapService:
             return self.create_map(new_map)
         else:
             if self.is_newer_version(
-                    current_version=mod_map.version, new_version=mod_detail.version
+                current_version=mod_map.version, new_version=mod_detail.version
             ):
                 logger.info(
                     f"Updating Map {mod_detail.name} ({mod_detail.id}) "
@@ -159,7 +182,7 @@ class MapService:
             not_in_db = mod_preview.id not in existing_map_ids
 
             if is_new_or_updated:
-                map_obj: Optional[Map] = self.map_repository.get_by_id(mod_preview.id)
+                map_obj: Map | None = self.map_repository.get_by_id(mod_preview.id)
 
                 if not map_obj:
                     logger.info("New map: '%s' (%d)", mod_preview.name, mod_preview.id)
@@ -170,7 +193,7 @@ class MapService:
                 logger.debug(
                     "Checking versions - current: %s | preview: %s",
                     map_obj.version,
-                    mod_detail.version
+                    mod_detail.version,
                 )
 
                 if self.is_newer_version(map_obj.version, mod_detail.version):
@@ -181,13 +204,13 @@ class MapService:
                         "Map: '%s' (%d) already up to date: %s",
                         map_obj.name,
                         map_obj.id,
-                        map_obj.version
+                        map_obj.version,
                     )
 
             elif not_in_db and is_not_prefab:
                 logger.info(
                     "Map not labeled as new or update, but missing from maps table: %s",
-                    mod_preview.name
+                    mod_preview.name,
                 )
                 new_maps.append(mod_preview)
 
@@ -210,9 +233,7 @@ class MapService:
             raise
         except HTTPError as exc:
             logger.error(
-                "Failed scraping or downloading map %s from ModHub. Reason: %s",
-                map_id,
-                exc
+                "Failed scraping or downloading map %s from ModHub. Reason: %s", map_id, exc
             )
             raise
 
@@ -234,8 +255,7 @@ class MapService:
             try:
                 extracted = self.file_parser_service.extract_zip(temp_zip.name)
                 restructured_files = self.file_parser_service.restructure_files(
-                    extracted.files,
-                    extracted.root_dir
+                    extracted.files, extracted.root_dir
                 )
             except (FileNotFoundError, BadZipFile, PermissionError) as exc:
                 logger.error("Failed to extract or restructure files from map file: %s", exc)

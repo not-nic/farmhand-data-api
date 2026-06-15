@@ -1,5 +1,4 @@
 from pathlib import Path
-from typing import Union
 
 import yaml
 from pydantic import BaseModel
@@ -36,7 +35,7 @@ class ConfigModel(BaseModel):
     farmhand: FarmhandModel
 
     @classmethod
-    def from_yaml_file(cls, file_path: Union[str, Path]) -> "ConfigModel":
+    def from_yaml_file(cls, file_path: str | Path) -> ConfigModel:
         """
         Load the configuration from a YAML file.
         :param file_path: Path to the YAML file

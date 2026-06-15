@@ -1,10 +1,11 @@
 """
 Pytest conftest.py module containing test setup, TestClient Fixtures and other mocks.
 """
+
 from collections.abc import Generator
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Any, Optional
+from typing import Any
 
 import boto3
 import pytest
@@ -49,7 +50,7 @@ def client(db):
 
 
 @pytest.fixture()
-def mock_s3() -> Generator[tuple[S3Client, str], Any, None]:
+def mock_s3() -> Generator[tuple[S3Client, str], Any]:
     """
     Fixture that mocks a boto3 AWS S3 Client.
     """
@@ -58,8 +59,7 @@ def mock_s3() -> Generator[tuple[S3Client, str], Any, None]:
         bucket_name: str = settings.AWS_S3_BUCKET_NAME
 
         client.create_bucket(
-            Bucket=bucket_name,
-            CreateBucketConfiguration={"LocationConstraint": "eu-west-2"}
+            Bucket=bucket_name, CreateBucketConfiguration={"LocationConstraint": "eu-west-2"}
         )
 
         yield client, bucket_name
@@ -74,7 +74,7 @@ def mock_mod_hub_page(mocker) -> callable:
     :return: A callable _mock_page function.
     """
 
-    def _mock_page(file_name: Optional[str] = None, status_code: int = status.HTTP_200_OK) -> None:
+    def _mock_page(file_name: str | None = None, status_code: int = status.HTTP_200_OK) -> None:
         html_content = load_test_resource(file_name) if file_name else ""
         request = Request(method="GET", url=settings.BASE_FS_URL)
 
@@ -108,7 +108,7 @@ def mod_detail():
         Released="30.04.2025",
         Platform="PC/MAC",
         file_url="https://mod-download.com/custom-map-1.zip",
-        zip_filename="custom-map-1.zip"
+        zip_filename="custom-map-1.zip",
     )
 
 
@@ -126,8 +126,9 @@ def mock_mod_hub_service(mocker, mod_detail) -> ModHubService:
     mock_service.scrape_mod.return_value = mod_detail
     mock_service.scrape_mods.return_value = []
     mock_service.download_mod.return_value = b"zip-file-contents"
-    mock_service.get_download_url.return_value = (f"{settings.BASE_FS_URL}/download/"
-                                                  f"{mod_detail.zip_filename}")
+    mock_service.get_download_url.return_value = (
+        f"{settings.BASE_FS_URL}/download/{mod_detail.zip_filename}"
+    )
 
     mocker.patch("src.api.services.modhub_service.ModHubService", new=mock_service)
 
@@ -135,7 +136,7 @@ def mock_mod_hub_service(mocker, mod_detail) -> ModHubService:
 
 
 @pytest.fixture
-def mock_file_parser_service(mocker) -> Generator[FileParserService, Any, None]:
+def mock_file_parser_service(mocker) -> Generator[FileParserService, Any]:
     """
     Fixture containing a mocked file parser service and an expected directory format.
     :param mocker: Pytest-mocker instance.
@@ -147,16 +148,14 @@ def mock_file_parser_service(mocker) -> Generator[FileParserService, Any, None]:
     file_names = ["map.i3d", "vehicles.xml", "overview.dds", "infoLayer.grle"]
 
     mock_extracted = ExtractedZip(
-        files=[temp_path / name for name in file_names],
-        root_dir=temp_path,
-        temp_dir=temp_dir
+        files=[temp_path / name for name in file_names], root_dir=temp_path, temp_dir=temp_dir
     )
 
     restructured_files = [
         temp_path / "map/map.i3d",
         temp_path / "config/vehicles.xml",
         temp_path / "assets/overview.dds",
-        temp_path / "data/infoLayer.grle"
+        temp_path / "data/infoLayer.grle",
     ]
 
     for file_path in restructured_files:

@@ -19,7 +19,7 @@ def get_engine() -> Engine:
     return create_engine(str(settings.DATABASE_URL), pool_size=10, max_overflow=20)
 
 
-def _get_db() -> Generator[Session, None, None]:
+def _get_db() -> Generator[Session]:
     """
     Internal generator for DB session management.
     """

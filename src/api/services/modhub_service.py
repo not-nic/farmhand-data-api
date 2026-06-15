@@ -2,8 +2,8 @@
 Mod Hub Service Module for generic scraping of the Farming Simulator ModHub
 pages.
 """
+
 import time
-from typing import Optional
 
 from bs4 import BeautifulSoup, Tag
 from httpx import AsyncClient, HTTPError, HTTPStatusError, Response
@@ -37,18 +37,15 @@ class ModHubService:
         file_size = len(response.content)
 
         logger.info(
-            f"Finished downloading {get_filename_from_url(file_url)} "
-            f"in {elapsed_time:.2f} seconds."
+            f"Finished downloading {get_filename_from_url(file_url)} in {elapsed_time:.2f} seconds."
         )
         logger.info(f"Downloaded file size: {format_file_size(file_size)}")
 
         return response.content
 
     async def get_download_url(
-            self,
-            mod_id: Optional[int] = None,
-            page_contents: Optional[BeautifulSoup] = None
-    ) -> Optional[str]:
+        self, mod_id: int | None = None, page_contents: BeautifulSoup | None = None
+    ) -> str | None:
         """
         Gets the download URL either from a mod_id or the page_contents HTML.
         :param mod_id: The id of the mod to download
@@ -65,11 +62,10 @@ class ModHubService:
             page_contents = BeautifulSoup(response.content, "html.parser")
 
         download_button = page_contents.find(
-            "a",
-            class_="button button-buy button-middle button-no-margin expanded"
+            "a", class_="button button-buy button-middle button-no-margin expanded"
         )
 
-        return download_button['href'] if download_button else None
+        return download_button["href"] if download_button else None
 
     async def scrape_mod(self, mod_id: int) -> ModDetailModel:
         """
@@ -109,9 +105,7 @@ class ModHubService:
             )
 
     async def scrape_mods(
-            self,
-            category: Optional[str] = None,
-            page: Optional[str] = None
+        self, category: str | None = None, page: str | None = None
     ) -> list[ModPreviewModel]:
         """
         Scrape the 'mods' pages and get the ids for each mod displayed
@@ -139,11 +133,13 @@ class ModHubService:
             for container in mod_item_containers:
                 mod_item = container.find("div", class_="mod-item")
                 if mod_item:
-                    mod_ids.append(self.get_mod_preview_details(mod_item))
+                    mod_preview = self.get_mod_preview_details(mod_item)
+                    if mod_preview is not None:
+                        mod_ids.append(mod_preview)
 
         return mod_ids
 
-    async def get_pages(self, category_filter: Optional[str] = None) -> list:
+    async def get_pages(self, category_filter: str | None = None) -> list:
         """
         Get the number of 'mod pages' per category, zero indexed for the URL.
         :param category_filter: The category to filter by.
@@ -187,9 +183,9 @@ class ModHubService:
 
     @staticmethod
     def create_mods_url(
-        category_filter: Optional[str] = None,
-        page: Optional[int] = None,
-        title: Optional[str] = None,
+        category_filter: str | None = None,
+        page: int | None = None,
+        title: str | None = None,
     ) -> str:
         """
         create a URL to scrape a mod by its category or without.
@@ -206,7 +202,7 @@ class ModHubService:
         )
 
     @staticmethod
-    def create_mod_url(mod_id: int, title: Optional[str] = None) -> str:
+    def create_mod_url(mod_id: int, title: str | None = None) -> str:
         """
         create a ModHub url for a specific mod that can be scraped.
         :param mod_id: the id of the mod to request
@@ -234,7 +230,7 @@ class ModHubService:
 
         return info
 
-    def get_mod_preview_details(self, mod_item: Tag) -> Optional[ModPreviewModel]:
+    def get_mod_preview_details(self, mod_item: Tag) -> ModPreviewModel | None:
         """
         Get the id for the mod based on the href of the 'MORE_INFO' button.
         :param mod_item: The current mod item
@@ -258,7 +254,7 @@ class ModHubService:
         if "mod_id=" in href:
             try:
                 mod_id = int(href.split("mod_id=")[1].split("&")[0])
-            except (ValueError, IndexError):
+            except ValueError, IndexError:
                 logger.info(f"Failed to extract mod_id from href: {href}")
 
         if mod_id is None:
@@ -285,7 +281,7 @@ class ModHubService:
         return pagination
 
     @staticmethod
-    async def _make_request(url: str, headers: Optional[dict] = None) -> Response:
+    async def _make_request(url: str, headers: dict | None = None) -> Response:
         """
         Helper method to make requests to Farming simulator's ModHub.
         :param url: The url to request.

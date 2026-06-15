@@ -6,7 +6,7 @@ boto3, primarily S3 / MinIO buckets.
 from io import BytesIO
 from os import PathLike
 from pathlib import Path
-from typing import Literal, Optional, Union
+from typing import Literal
 
 import boto3
 from botocore.exceptions import ClientError
@@ -22,7 +22,8 @@ class AwsService:
     AWS service class used for uploading items to S3, primary Farming Simulator mod
     maps and their extracted contents.
     """
-    def __init__(self, bucket_name: Optional[str] = None):
+
+    def __init__(self, bucket_name: str | None = None):
         """
         Constructor for the AwsService
         :param bucket_name: (str) of the bucket to save content to.
@@ -34,15 +35,15 @@ class AwsService:
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
             endpoint_url=settings.MINIO_ENDPOINT_URL or None,
-            region_name=settings.AWS_REGION
+            region_name=settings.AWS_REGION,
         )
 
     def generate_pre_signed_url(
-            self,
-            object_key: str,
-            method_type: Literal["get_object", "put_object"],
-            expiration_time=3600
-    ) -> Optional[str]:
+        self,
+        object_key: str,
+        method_type: Literal["get_object", "put_object"],
+        expiration_time=3600,
+    ) -> str | None:
         """
         Generate a pre-signed URL to upload or view a mod in a farmhand bucket
         :param object_key: the object key to store the mod at.
@@ -54,7 +55,7 @@ class AwsService:
             url = self.s3.generate_presigned_url(
                 method_type,
                 Params={"Bucket": self.bucket, "Key": object_key},
-                ExpiresIn=expiration_time
+                ExpiresIn=expiration_time,
             )
             logger.debug("Generated pre-signed url for: %s", object_key)
         except ClientError as exc:
@@ -77,10 +78,7 @@ class AwsService:
             return f"s3://{self.bucket}/{object_key}"
         except ClientError as exc:
             logger.warning(
-                "Failed to upload '%s' to %s. Reason: %s",
-                object_key,
-                self.bucket,
-                str(exc)
+                "Failed to upload '%s' to %s. Reason: %s", object_key, self.bucket, str(exc)
             )
             raise
 
@@ -100,7 +98,7 @@ class AwsService:
                     str(file_path),
                     self.bucket,
                     key,
-                    ExtraArgs={"ContentType": extension_to_content_type(relative_path.suffix)}
+                    ExtraArgs={"ContentType": extension_to_content_type(relative_path.suffix)},
                 )
                 logger.debug("Uploading '%s' to %s ", key, self.bucket)
             except ClientError as exc:
@@ -109,7 +107,7 @@ class AwsService:
 
         return f"s3://{self.bucket}/{object_key}"
 
-    def download_object(self, key, download_location: Union[PathLike, str]) -> None:
+    def download_object(self, key, download_location: PathLike | str) -> None:
         """
         Function to download an object from S3 and save it to a temporary file.
         :param key: The key of the S3 object to download.
