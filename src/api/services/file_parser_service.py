@@ -10,7 +10,6 @@ import time
 from dataclasses import dataclass
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from typing import Optional
 from zipfile import BadZipFile, ZipFile
 
 from src.api.core.config import settings
@@ -24,6 +23,7 @@ class ExtractedZip:
     Extracted Zip dataclass containing files, root directory
     and the temporary directory this has been stored in.
     """
+
     files: list[Path]
     root_dir: Path
     temp_dir: TemporaryDirectory
@@ -38,9 +38,7 @@ class FileParserService:
     """
 
     def __init__(
-            self,
-            filters: Optional[ParserFilterModel] = None,
-            parser_directory_schema: Optional[dict] = None
+        self, filters: ParserFilterModel | None = None, parser_directory_schema: dict | None = None
     ):
         """
         Constructor for the FileParserService.
@@ -56,7 +54,7 @@ class FileParserService:
             "assets": [".dds", ".png", ".jpg", ".jpeg"],
             "data": [".grle"],
             "map": [".i3d"],
-            "unused": set()
+            "unused": set(),
         }
 
     def extract_zip(self, filename: str) -> ExtractedZip:
@@ -130,17 +128,14 @@ class FileParserService:
                 shutil.copy2(file, target)
             else:
                 logger.debug(
-                    "[File Parser]: Skipping move for '%s' as source and target are the same",
-                    file
+                    "[File Parser]: Skipping move for '%s' as source and target are the same", file
                 )
 
             moved_files.append(target)
 
         duration = time.monotonic() - start_time
         logger.info(
-            "[File Parser]: Restructured %d files in %.2f seconds",
-            len(moved_files),
-            duration
+            "[File Parser]: Restructured %d files in %.2f seconds", len(moved_files), duration
         )
 
         return moved_files
@@ -173,7 +168,7 @@ class FileParserService:
                 return directory
         return "unused"
 
-    def __handle_extra_content(self, relative_path: Path, root_dir: Path) -> Optional[Path]:
+    def __handle_extra_content(self, relative_path: Path, root_dir: Path) -> Path | None:
         """
         Determines if a file belongs to extra content and returns then returns the 'extras' target
         path.
@@ -195,7 +190,7 @@ class FileParserService:
             logger.debug(
                 "[File Parser]: Found '%s' extra content preserving file path: %s",
                 original_folder_name,
-                trimmed_path
+                trimmed_path,
             )
             return target
 
@@ -222,13 +217,11 @@ class FileParserService:
         :return: (bool) if the file should be filtered or not.
         """
         relative_path = file.relative_to(root_dir)
-        return (
-            self.__always_include_filter(relative_path) or not (
-                self.__exclude_glob_filter(relative_path) or
-                self.__exclude_file_type_filter(file) or
-                self.__exclude_file_filter(file) or
-                self.__exclude_directory_filter(file)
-            )
+        return self.__always_include_filter(relative_path) or not (
+            self.__exclude_glob_filter(relative_path)
+            or self.__exclude_file_type_filter(file)
+            or self.__exclude_file_filter(file)
+            or self.__exclude_directory_filter(file)
         )
 
     def __always_include_filter(self, file_path: Path) -> bool:
@@ -273,4 +266,3 @@ class FileParserService:
         :return: (bool) if the file should be filtered or not.
         """
         return any(ex_dir in file.parts for ex_dir in self.filters.excluded_directories)
-

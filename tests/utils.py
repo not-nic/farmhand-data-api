@@ -21,7 +21,7 @@ def load_test_resource(filename: str) -> str:
 
 
 def create_previews_by_category(
-    preview_and_category: list[tuple[ModPreviewModel, str]]
+    preview_and_category: list[tuple[ModPreviewModel, str]],
 ) -> dict[str, list[ModPreviewModel]]:
     """
     Groups a list of (category, ModPreviewModel) tuples into a dict by category.
@@ -46,7 +46,7 @@ def create_test_zip_file(file_list: list[str]) -> bytes:
     :return: The bytes of the .zip file.
     """
     buffer = BytesIO()
-    with ZipFile(buffer, 'w') as zf:
+    with ZipFile(buffer, "w") as zf:
         for file_name in file_list:
             zf.writestr(file_name, "dummy content")
     buffer.seek(0)

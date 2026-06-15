@@ -51,6 +51,7 @@ class ContentType(StrEnum):
     """
     Content types supported by Farming Simulator save games.
     """
+
     XML = "application/xml"
     I3D = "application/xml"
     PNG = "image/png"

@@ -26,10 +26,13 @@ async def lifespan(app: FastAPI):
     of an application.
     :param app: The FastAPI application instance
     """
-    logger.info("Starting Scheduler and scheduling jobs.")
+    logger.info("Starting APScheduler and Scheduling jobs...")
     scheduler.start()
     base_scheduler.schedule_jobs(scheduler=scheduler)
-    logger.info("Jobs Scheduled: %s ", base_scheduler.jobs)
+
+    job_ids: list[str] = [job.id for job in base_scheduler.jobs]
+
+    logger.info("Jobs Scheduled: %s ", job_ids)
     yield  # Continue running the app
     scheduler.shutdown()
 

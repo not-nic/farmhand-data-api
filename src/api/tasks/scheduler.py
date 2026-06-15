@@ -3,8 +3,9 @@ Module containing a singleton utility for scheduling jobs with APScheduler.
 """
 
 import threading
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any, Callable, Optional
+from typing import Any
 
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.triggers.base import BaseTrigger
@@ -15,12 +16,13 @@ class JobModel:
     """
     Dataclass for the job model to instantiate new background tasks.
     """
+
     func: Callable[..., Any]
     trigger: BaseTrigger
     id: str
-    name: Optional[str] = None
-    args: Optional[list] = None
-    kwargs: Optional[dict] = None
+    name: str | None = None
+    args: list | None = None
+    kwargs: dict | None = None
     replace_existing: bool = True
 
 
@@ -64,7 +66,5 @@ class Scheduler:
                 name=job.name,
                 args=job.args,
                 kwargs=job.kwargs,
-                replace_existing=job.replace_existing
+                replace_existing=job.replace_existing,
             )
-
-

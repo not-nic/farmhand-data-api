@@ -1,6 +1,7 @@
 """
 Map Service Unit Tests.
 """
+
 from datetime import date
 from zipfile import BadZipFile
 
@@ -21,7 +22,6 @@ from tests.utils import create_previews_by_category, create_test_zip_file
 @pytest.mark.asyncio
 @pytest.mark.usefixtures("db")
 class TestMapService:
-
     def test_get_all_maps(self, db):
         """
         Test that the map service can retrieve all map data from the repository.
@@ -83,7 +83,7 @@ class TestMapService:
             author="Nicholas Angel",
             release_date=date(day=7, month=8, year=2025),
             version="1.0.1.0",
-            zip_filename="new_map_name.zip"
+            zip_filename="new_map_name.zip",
         )
 
         map_service = MapService(db)
@@ -97,7 +97,7 @@ class TestMapService:
             mod_detail,
             mock_mod_hub_service,
             mock_s3,
-            mock_file_parser_service
+            mock_file_parser_service,
     ):
         """
         Test that the map service gets new maps, uploads them to S3, extracts files
@@ -120,40 +120,45 @@ class TestMapService:
         mocker.patch.object(
             map_service,
             "check_for_new_maps",
-            new=mocker.AsyncMock(return_value=[
-                ModPreviewModel(id=123456, name="Custom Map 1", label=ModHubLabels.NEW),
-                ModPreviewModel(id=456789, name="Custom Map 2", label=ModHubLabels.NEW),
-            ])
+            new=mocker.AsyncMock(
+                return_value=[
+                    ModPreviewModel(id=123456, name="Custom Map 1", label=ModHubLabels.NEW),
+                    ModPreviewModel(id=456789, name="Custom Map 2", label=ModHubLabels.NEW),
+                ]
+            ),
         )
 
         # Mock the ModHub service scrape_mod response with ModDetail models.
         mocker.patch.object(
             map_service.mod_hub_service,
             "scrape_mod",
-            new=mocker.AsyncMock(side_effect=[
-                mod_detail.model_copy(
-                    update={
-                        "id": 123456,
-                        "name": "Custom Map 1",
-                        "category": "map_europe",
-                        "Version": "1.0.0.0"
-                    }),
-                mod_detail.model_copy(
-                    update={
-                        "id": 456789,
-                        "name": "Custom Map 2",
-                        "category": "map_europe",
-                        "Version": "1.0.0.0"
-                    }
-                )
-            ]),
+            new=mocker.AsyncMock(
+                side_effect=[
+                    mod_detail.model_copy(
+                        update={
+                            "id": 123456,
+                            "name": "Custom Map 1",
+                            "category": "map_europe",
+                            "Version": "1.0.0.0",
+                        }
+                    ),
+                    mod_detail.model_copy(
+                        update={
+                            "id": 456789,
+                            "name": "Custom Map 2",
+                            "category": "map_europe",
+                            "Version": "1.0.0.0",
+                        }
+                    ),
+                ]
+            ),
         )
 
         # ignore the download and extracting files
         mocker.patch.object(map_service, "download_map", new=mocker.AsyncMock(return_value=None))
         mocker.patch.object(map_service, "extract_map_files", return_value=None)
 
-        # assert two mods were added to the databse.
+        # assert two mods were added to the database.
         await map_service.get_new_maps()
         assert len(map_service.get_maps()) == 2
 
@@ -230,7 +235,7 @@ class TestMapService:
             self,
             db,
             mod_detail,
-            mock_mod_hub_service
+            mock_mod_hub_service,
     ):
         """
         Test that when an already saved map has a new version, it's re-scraped
@@ -258,12 +263,14 @@ class TestMapService:
         :param mock_mod_hub_service: Fixture containing a mocked instance of the ModHub Service.
         :param mocker: Pytest mocker fixture.
         """
-        mod_previews_by_category = create_previews_by_category([
-            (
-                ModPreviewModel(id=789013, name="Prefab Mod", label=ModHubLabels.PREFAB),
-                ModHubMapFilters.SOUTH_AMERICAN_MAPS
-            )
-        ])
+        mod_previews_by_category = create_previews_by_category(
+            [
+                (
+                    ModPreviewModel(id=789013, name="Prefab Mod", label=ModHubLabels.PREFAB),
+                    ModHubMapFilters.SOUTH_AMERICAN_MAPS,
+                )
+            ]
+        )
 
         # Mock get_pages to return a single page for each filter
         mock_mod_hub_service.get_pages = mocker.AsyncMock(return_value=[1])
@@ -282,7 +289,7 @@ class TestMapService:
             self,
             db,
             mock_mod_hub_service,
-            mocker
+            mocker,
     ):
         """
         Test that when checking new maps new, updated and untagged maps
@@ -291,20 +298,24 @@ class TestMapService:
         :param mock_mod_hub_service: Fixture containing a mocked instance of the ModHub Service.
         :param mocker: Pytest mocker fixture.
         """
-        mod_previews_by_category = create_previews_by_category([
-            (
-                ModPreviewModel(id=123456, name="European Map", label=ModHubLabels.NEW),
-                ModHubMapFilters.EUROPEAN_MAPS
-            ),
-            (
-                ModPreviewModel(id=456789, name="North American Map", label=ModHubLabels.UPDATE),
-                ModHubMapFilters.NORTH_AMERICAN_MAPS
-            ),
-            (
-                ModPreviewModel(id=654321, name="Old Mod", label=ModHubLabels.UNTAGGED),
-                ModHubMapFilters.OTHER_MAPS,
-            )
-        ])
+        mod_previews_by_category = create_previews_by_category(
+            [
+                (
+                    ModPreviewModel(id=123456, name="European Map", label=ModHubLabels.NEW),
+                    ModHubMapFilters.EUROPEAN_MAPS,
+                ),
+                (
+                    ModPreviewModel(
+                        id=456789, name="North American Map", label=ModHubLabels.UPDATE
+                    ),
+                    ModHubMapFilters.NORTH_AMERICAN_MAPS,
+                ),
+                (
+                    ModPreviewModel(id=654321, name="Old Mod", label=ModHubLabels.UNTAGGED),
+                    ModHubMapFilters.OTHER_MAPS,
+                ),
+            ]
+        )
 
         # Mock get_pages to return a single page for each filter
         mock_mod_hub_service.get_pages = mocker.AsyncMock(return_value=[1])
@@ -327,7 +338,7 @@ class TestMapService:
             mock_mod_hub_service,
             mocker,
             version,
-            expected_new_maps
+            expected_new_maps,
     ):
         """
         Test that when checking for new maps, if the map already
@@ -344,12 +355,14 @@ class TestMapService:
         map_service = MapService(db)
         map_service.create_map(MapModel(**mod_detail.model_dump()))
 
-        mod_previews_by_category = create_previews_by_category([
-            (
-                ModPreviewModel(id=mod_detail.id, name=mod_detail.name, label=ModHubLabels.NEW),
-                ModHubMapFilters.EUROPEAN_MAPS
-            )
-        ])
+        mod_previews_by_category = create_previews_by_category(
+            [
+                (
+                    ModPreviewModel(id=mod_detail.id, name=mod_detail.name, label=ModHubLabels.NEW),
+                    ModHubMapFilters.EUROPEAN_MAPS,
+                )
+            ]
+        )
 
         # Mock get_pages to return a single page for each filter
         mock_mod_hub_service.get_pages = mocker.AsyncMock(return_value=[1])
@@ -382,17 +395,17 @@ class TestMapService:
 
         expected_object = s3_client.get_object(
             Bucket=bucket,
-            Key=f"{mod_detail.id}/{mod_detail.zip_filename}"
+            Key=f"{mod_detail.id}/{mod_detail.zip_filename}",
         )
 
         assert expected_object is not None
         assert uri == f"s3://{bucket}/{mod_detail.id}/{mod_detail.zip_filename}"
 
     async def test_map_service_raises_http_error_when_download_fails(
-            self,
-            db,
-            mod_detail,
-            mock_mod_hub_service,
+        self,
+        db,
+        mod_detail,
+        mock_mod_hub_service,
     ):
         """
         Test that the map service re-raises an HTTP error when communication
@@ -411,11 +424,7 @@ class TestMapService:
             await map_service.download_map(mod_detail.id, mod_detail.zip_filename)
 
     async def test_map_service_raises_client_error_when_s3_upload_fails(
-            self,
-            mocker,
-            db,
-            mod_detail,
-            mock_mod_hub_service
+        self, mocker, db, mod_detail, mock_mod_hub_service
     ):
         """
         Test that the map service re-raises a ClientError error when communication
@@ -427,19 +436,12 @@ class TestMapService:
         """
         map_service = MapService(db, mod_hub_service=mock_mod_hub_service)
 
-        client_error = ClientError(error_response={"Error": {
-                    "Code": "500",
-                    "Message": "Error uploading object"
-                }
-            },
-            operation_name="PutObject"
+        client_error = ClientError(
+            error_response={"Error": {"Code": "500", "Message": "Error uploading object"}},
+            operation_name="PutObject",
         )
 
-        mocker.patch.object(
-            map_service.aws_service,
-            "upload_object",
-            side_effect=client_error
-        )
+        mocker.patch.object(map_service.aws_service, "upload_object", side_effect=client_error)
 
         with pytest.raises(ClientError):
             await map_service.download_map(mod_detail.id, mod_detail.zip_filename)
@@ -450,7 +452,7 @@ class TestMapService:
             mod_detail,
             mock_mod_hub_service,
             mock_s3,
-            mock_file_parser_service
+            mock_file_parser_service,
     ):
         """
         Test that the map service can extract files from a 'zip' archive
@@ -464,9 +466,9 @@ class TestMapService:
 
         # create a zip archive in the S3 mock.
         client, bucket = mock_s3
-        zip_content = create_test_zip_file([
-            "map.i3d", "vehicles.xml", "overview.dds", "infoLayer.grle"
-        ])
+        zip_content = create_test_zip_file(
+            ["map.i3d", "vehicles.xml", "overview.dds", "infoLayer.grle"]
+        )
 
         object_key = f"{mod_detail.id}/{mod_detail.zip_filename}"
         client.put_object(Bucket=bucket, Key=object_key, Body=zip_content)
@@ -474,7 +476,7 @@ class TestMapService:
         map_service = MapService(
             db=db,
             mod_hub_service=mock_mod_hub_service,
-            file_parser_service=mock_file_parser_service
+            file_parser_service=mock_file_parser_service,
         )
 
         map_service.create_map(MapModel(**mod_detail.model_dump()))
@@ -492,7 +494,7 @@ class TestMapService:
             f"{mod_detail.id}/{map_name}/map/map.i3d",
             f"{mod_detail.id}/{map_name}/config/vehicles.xml",
             f"{mod_detail.id}/{map_name}/assets/overview.dds",
-            f"{mod_detail.id}/{map_name}/data/infoLayer.grle"
+            f"{mod_detail.id}/{map_name}/data/infoLayer.grle",
         }
 
         # assert the correct files have been uploaded to the bucket in the correct format.
@@ -504,10 +506,7 @@ class TestMapService:
         assert expected_map.data_uri == f"s3://{bucket}/{mod_detail.id}/{map_name}"
 
     async def test_map_service_raises_map_processing_error(
-            self,
-            db,
-            mock_s3,
-            mock_file_parser_service
+        self, db, mock_s3, mock_file_parser_service
     ):
         """
         Test that the map service captures a BadZipFile error
@@ -522,10 +521,7 @@ class TestMapService:
 
         mock_file_parser_service.extract_zip.side_effect = BadZipFile("Corrupted zip")
 
-        service = MapService(
-            db=db,
-            file_parser_service=mock_file_parser_service
-        )
+        service = MapService(db=db, file_parser_service=mock_file_parser_service)
 
         with pytest.raises(MapProcessingError, match="Failed to process map data"):
             service.extract_map_files(999999, "bad.zip")
@@ -544,10 +540,7 @@ class TestMapService:
 
         mock_file_parser_service.extract_zip.side_effect = FileNotFoundError("Missing file")
 
-        service = MapService(
-            db=db,
-            file_parser_service=mock_file_parser_service
-        )
+        service = MapService(db=db, file_parser_service=mock_file_parser_service)
 
         with pytest.raises(MapProcessingError, match="Failed to process map data"):
             service.extract_map_files(999999, "no_file.zip")
