@@ -3,7 +3,6 @@ Module containing the config / settings for the Farmhand Data API.
 """
 
 import os
-from typing import Literal
 
 from pydantic import PostgresDsn, computed_field
 from pydantic_core import MultiHostUrl
@@ -46,7 +45,6 @@ class Settings(BaseSettingsConfig):
     POSTGRES_USER: str
     POSTGRES_PASSWORD: str
     POSTGRES_DB: str
-    ENVIRONMENT: Literal["dev", "testing", "production"] = "dev"
     TESTING: bool = False
 
     AWS_ACCESS_KEY_ID: str

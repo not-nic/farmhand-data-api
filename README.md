@@ -18,7 +18,6 @@ It handles scraping mods from the ModHub, XML conversion and Map & Savegame data
    POSTGRES_USER=postgres
    POSTGRES_PASSWORD=postgres
    POSTGRES_DB=farmhand-data
-   ENVIRONMENT=development
    
    TESTING=false
 
