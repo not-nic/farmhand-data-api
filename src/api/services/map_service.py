@@ -2,10 +2,8 @@
 Map Service Module currently used for manually scraping map data
 when new maps are released.
 """
-
-import time
-from tempfile import NamedTemporaryFile
-from zipfile import BadZipFile
+import asyncio
+from dataclasses import dataclass, field
 
 from botocore.exceptions import ClientError
 from httpx import HTTPError
@@ -14,15 +12,23 @@ from sqlalchemy.orm import Session
 from src.api.constants import ModHubLabels, ModHubMapFilters
 from src.api.core.config import settings
 from src.api.core.db.models import Map
-from src.api.core.exceptions import MapProcessingError
 from src.api.core.logger import logger
 from src.api.core.repositories import MapRepository
 from src.api.core.schema.maps import MapModel
-from src.api.core.schema.mods import ModPreviewModel
+from src.api.core.schema.mods import ModDetailModel, ModPreviewModel
 from src.api.services.aws_service import AwsService
-from src.api.services.file_parser_service import FileParserService
 from src.api.services.modhub_service import ModHubService
 from src.api.utils import parse_version
+
+
+@dataclass
+class NewMapCandidate:
+    """
+    Dataclass containing the ModHub preview and any details
+    that have already been fetched from the ModHub.
+    """
+    preview: ModPreviewModel
+    prefetched_detail: ModDetailModel | None = field(default=None)
 
 
 class MapService:
@@ -30,25 +36,24 @@ class MapService:
     Map Service used for getting map information from the ModHub
     and creating map entries in the database.
     """
+    INVALID_CATEGORIES: tuple[str] = ("Prefab", "Gameplay")
+    MAX_CONCURRENCY: int = 10
 
     def __init__(
         self,
         db: Session,
         mod_hub_service: ModHubService | None = None,
         aws_service: AwsService | None = None,
-        file_parser_service: FileParserService | None = None,
     ):
         """
         Constructor for the map service.
         :param db: Database Session.
         :param mod_hub_service: (Optional) ModHub Service instance.
         :param aws_service: (Optional) AWS Service instance.
-        :param file_parser_service: (Optional) File Parser Service.
         """
         self.map_repository = MapRepository(db)
         self.mod_hub_service = mod_hub_service or ModHubService()
         self.aws_service = aws_service or AwsService()
-        self.file_parser_service = file_parser_service or FileParserService()
 
     def get_maps(self) -> list[Map]:
         """
@@ -74,19 +79,25 @@ class MapService:
 
     async def get_new_maps(self):
         """
-        Function to get new maps from the ModHub, download them and store them
-        in the Farmhand S3 bucket and save any information in the database.
+        Function to get new maps from the ModHub and store their information in the DB.
         """
-        new_maps = await self.check_for_new_maps()
+        new_map_candidates = await self.check_for_new_maps()
 
-        for map_preview in new_maps:
+        if not new_map_candidates:
+            logger.info("All scraped and downloaded maps up to date.")
+            return
+
+        for candidate in new_map_candidates:
             try:
-                map_obj: Map = await self.scrape_map_details(map_preview.id)
-            except Exception as e:
+                map_obj: Map = await self.scrape_map_details(
+                    candidate.preview.id,
+                    prefetched_detail=candidate.prefetched_detail,
+                )
+            except (ValueError, HTTPError) as e:
                 logger.warning(
                     "Skipping map '%s' (%d) - failed to scrape details: %s",
-                    map_preview.name,
-                    map_preview.id,
+                    candidate.preview.name,
+                    candidate.preview.id,
                     e,
                 )
                 continue
@@ -94,31 +105,58 @@ class MapService:
             if map_obj is None:
                 continue
 
-            if settings.ENABLE_MAP_DOWNLOADS:
-                await self.download_map(map_obj.id, map_obj.zip_filename)
-                self.extract_map_files(map_obj.id, map_obj.zip_filename)
-            else:
-                logger.info(
-                    "Map downloads disabled — skipping download and extraction for '%s' (%d).",
-                    map_obj.name,
-                    map_obj.id,
-                )
+            await self._process_map_download(map_obj)
 
-        if not new_maps:
-            logger.info("All scraped and downloaded maps up to date.")
-        else:
-            logger.info(
-                "Successfully scraped and downloaded '%d' maps from the ModHub.", len(new_maps)
-            )
+        logger.info(
+            "Successfully scraped and downloaded '%d' maps from the ModHub.", len(new_map_candidates)
+        )
 
-    async def scrape_map_details(self, map_id: int) -> Map | None:
+    async def check_for_new_maps(self) -> list[NewMapCandidate]:
         """
+        Check for any new or updated maps from ModHub and return them.
+        """
+        new_maps = []
+        existing_map_ids: set = {map_obj.id for map_obj in self.get_maps()}
+
+        for mod_preview in await self._get_mod_hub_maps():
+            is_new_or_updated = mod_preview.label in [ModHubLabels.NEW, ModHubLabels.UPDATE]
+            is_not_prefab = mod_preview.label != ModHubLabels.PREFAB
+            not_in_db = mod_preview.id not in existing_map_ids
+
+            if is_new_or_updated:
+                map_obj: Map | None = self.map_repository.get_by_id(mod_preview.id)
+
+                if not map_obj:
+                    logger.info("New map: '%s' (%d)", mod_preview.name, mod_preview.id)
+                    new_maps.append(NewMapCandidate(preview=mod_preview))
+                    continue
+
+                candidate = await self._check_for_updated_map(mod_preview, map_obj)
+                if candidate:
+                    new_maps.append(candidate)
+
+            elif not_in_db and is_not_prefab:
+                candidate = await self._validate_untracked_map(mod_preview)
+                if candidate:
+                    new_maps.append(candidate)
+
+        logger.info("Found %d new map(s).", len(new_maps))
+        return new_maps
+
+    async def scrape_map_details(
+            self,
+            map_id: int,
+            prefetched_detail: ModDetailModel | None = None
+    ) -> Map | None:
+        """
+        Scrape a map
         Scrape a map from the ModHub and save or update its data based on the map's
-        version.
+        version. Accepts an optional prefetched detail to avoid a redundant scrape.
         :param map_id: The id of the ModHub map to scrape.
-        :return: Map object if its successfully scraped and stored in the database.
+        :param prefetched_detail: (Optional) Already-fetched mod detail from check_for_new_maps.
+        :return: A Map object if successfully scraped and stored in the database.
         """
-        mod_detail = await self.mod_hub_service.scrape_mod(map_id)
+        mod_detail = prefetched_detail or await self.mod_hub_service.scrape_mod(map_id)
 
         if mod_detail.category in ("Prefab", "Gameplay"):
             logger.warning(
@@ -153,71 +191,6 @@ class MapService:
 
         return mod_map
 
-    async def _get_mod_hub_maps(self) -> list[ModPreviewModel]:
-        """
-        Get all map mod_id's from the Farming Simulator ModHub.
-        :return: List of mod hub IDs.
-        """
-        map_preview = []
-
-        # iterate over all the map filters and make requests to each category's mod page.
-        for map_filter in ModHubMapFilters:
-            pages = await self.mod_hub_service.get_pages(map_filter)
-
-            for page in pages:
-                mod_ids = await self.mod_hub_service.scrape_mods(category=map_filter, page=page)
-                map_preview.extend(mod_ids)
-        return map_preview
-
-    async def check_for_new_maps(self) -> list[ModPreviewModel]:
-        """
-        Check for any new or updated maps from ModHub and return them.
-        """
-        new_maps = []
-        existing_map_ids: list = [map_obj.id for map_obj in self.get_maps()]
-
-        for mod_preview in await self._get_mod_hub_maps():
-            is_new_or_updated = mod_preview.label in [ModHubLabels.NEW, ModHubLabels.UPDATE]
-            is_not_prefab = mod_preview.label != ModHubLabels.PREFAB
-            not_in_db = mod_preview.id not in existing_map_ids
-
-            if is_new_or_updated:
-                map_obj: Map | None = self.map_repository.get_by_id(mod_preview.id)
-
-                if not map_obj:
-                    logger.info("New map: '%s' (%d)", mod_preview.name, mod_preview.id)
-                    new_maps.append(mod_preview)
-                    continue
-
-                mod_detail = await self.mod_hub_service.scrape_mod(mod_preview.id)
-                logger.debug(
-                    "Checking versions - current: %s | preview: %s",
-                    map_obj.version,
-                    mod_detail.version,
-                )
-
-                if self.is_newer_version(map_obj.version, mod_detail.version):
-                    logger.info("Found new version of: '%s' (%d)", map_obj.name, map_obj.id)
-                    new_maps.append(mod_preview)
-                else:
-                    logger.info(
-                        "Map: '%s' (%d) already up to date: %s",
-                        map_obj.name,
-                        map_obj.id,
-                        map_obj.version,
-                    )
-
-            elif not_in_db and is_not_prefab:
-                logger.info(
-                    "Map not labeled as new or update, but missing from maps table: %s",
-                    mod_preview.name,
-                )
-                new_maps.append(mod_preview)
-
-        logger.info("Found %d new map(s).", len(new_maps))
-
-        return new_maps
-
     async def download_map(self, map_id: int, filename: str) -> str:
         """
         Downloads a map and uploads it to an S3 bucket.
@@ -237,57 +210,118 @@ class MapService:
             )
             raise
 
-    def extract_map_files(self, map_id: int, filename: str):
+    async def _get_mod_hub_maps(self) -> list[ModPreviewModel]:
         """
-        Download and extract the zip file contents from S3 and re-upload
-        all required files for XML parsing.
-        :param map_id: The id of the map.
-        :param filename: The zip filename of the map.
+        Get all map mod_id's from the Farming Simulator ModHub.
+        :return: List of mod hub IDs.
         """
-        start_time = time.monotonic()
+        semaphore = asyncio.Semaphore(value=self.MAX_CONCURRENCY)
 
-        object_key = f"{map_id}/{filename}"
+        filters = list(ModHubMapFilters)
+        pages_per_filter = await asyncio.gather(
+            *[self.mod_hub_service.get_pages(map_filter) for map_filter in filters]
+        )
 
-        with NamedTemporaryFile(suffix=".zip") as temp_zip:
-            logger.info(f"Extracting files from: {object_key}")
-            self.aws_service.download_object(key=object_key, download_location=temp_zip.name)
+        scrape_tasks = [
+            self._scrape_mods(semaphore, map_filter, page)
+            for map_filter, pages in zip(filters, pages_per_filter, strict=True)
+            for page in pages
+        ]
 
-            try:
-                extracted = self.file_parser_service.extract_zip(temp_zip.name)
-                restructured_files = self.file_parser_service.restructure_files(
-                    extracted.files, extracted.root_dir
-                )
-            except (FileNotFoundError, BadZipFile, PermissionError) as exc:
-                logger.error("Failed to extract or restructure files from map file: %s", exc)
-                raise MapProcessingError(f"Failed to process map data from '{map_id}': {str(exc)}")
+        results = await asyncio.gather(*scrape_tasks)
 
-            try:
-                logger.info(f"Attempting to upload {len(extracted.files)} files to bucket...")
-                output_directory = object_key.rsplit(".", 1)[0]
-                s3_uri = self.aws_service.upload_directory_contents(
-                    restructured_files, extracted.root_dir, output_directory
-                )
-                self.map_repository.update(map_id, data_uri=s3_uri)
-            finally:
-                extracted.temp_dir.cleanup()
+        map_previews = []
+        for mod_ids in results:
+            map_previews.extend(mod_ids)
+        return map_previews
 
-        elapsed_time = time.monotonic() - start_time
-        logger.debug("Extracted data from %s in %.2f seconds.", object_key, elapsed_time)
-
-    async def extract_files_from_all_maps(self):
+    async def _scrape_mods(
+            self,
+            semaphore: asyncio.Semaphore,
+            map_filter: str,
+            page: str
+    ) -> list[ModPreviewModel]:
         """
-        (temp) Extract all files from all the maps stored within the database.
+        Scrape mods for a given filter and page, respecting the concurrency semaphore.
+        :param semaphore: Semaphore to limit concurrent requests to the ModHub.
+        :param map_filter: The map filter category to scrape.
+        :param page: The page number to scrape.
+        :return: List of mod previews scraped from the page.
         """
-        start_time = time.monotonic()
-        maps = self.get_maps()
-        logger.info("Starting file extraction process for %d maps.", len(maps))
+        async with semaphore:
+            return await self.mod_hub_service.scrape_mods(category=map_filter, page=page)
 
-        for map_obj in maps:
-            logger.info("Extracting files from map: '%s' (%d)", map_obj.name, map_obj.id)
-            self.extract_map_files(map_obj.id, map_obj.zip_filename)
+    async def _check_for_updated_map(
+            self,
+            mod_preview: ModPreviewModel,
+            map_obj: Map
+    ) -> NewMapCandidate | None:
+        """
+        Check if an existing map has a newer version on ModHub.
+        :param mod_preview: The mod preview from the ModHub listing.
+        :param map_obj: The existing map object from the database.
+        :return: NewMapCandidate if a newer version is found, None otherwise.
+        """
+        mod_detail = await self.mod_hub_service.scrape_mod(mod_preview.id)
+        logger.debug(
+            "Checking versions - current: %s | preview: %s",
+            map_obj.version,
+            mod_detail.version,
+        )
 
-        elapsed_time = time.monotonic() - start_time
-        logger.debug("Extracted data from %d maps in %.2f seconds.", len(maps), elapsed_time)
+        if self.is_newer_version(map_obj.version, mod_detail.version):
+            logger.info("Found new version of: '%s' (%d)", map_obj.name, map_obj.id)
+            return NewMapCandidate(preview=mod_preview, prefetched_detail=mod_detail)
+
+        logger.info(
+            "Map: '%s' (%d) already up to date: %s",
+            map_obj.name,
+            map_obj.id,
+            map_obj.version,
+        )
+        return None
+
+    async def _validate_untracked_map(
+            self,
+            mod_preview: ModPreviewModel
+    ) -> NewMapCandidate | None:
+        """
+        Validate a map that is missing from the database but not labelled as new or updated.
+        Scrapes the full mod detail to confirm it is a valid map category.
+        :param mod_preview: The mod preview from the ModHub listing.
+        :return: NewMapCandidate if valid, None if the category is invalid.
+        """
+        logger.info(
+            "Map not labeled as new or update, but missing from maps table: %s",
+            mod_preview.name,
+        )
+        mod_detail = await self.mod_hub_service.scrape_mod(mod_preview.id)
+
+        if mod_detail.category in self.INVALID_CATEGORIES:
+            logger.info(
+                "Skipping mod '%s' (%d) - invalid category: '%s'",
+                mod_preview.name,
+                mod_preview.id,
+                mod_detail.category,
+            )
+            return None
+
+        return NewMapCandidate(preview=mod_preview, prefetched_detail=mod_detail)
+
+    async def _process_map_download(self, map_obj: Map) -> None:
+        """
+        Download and extract a map if downloads are enabled.
+        :param map_obj: The map object to download and extract.
+        """
+        if settings.ENABLE_MAP_DOWNLOADS:
+            await self.download_map(map_obj.id, map_obj.zip_filename)
+            # self.extract_map_files(map_obj.id, map_obj.zip_filename)
+        else:
+            logger.info(
+                "Map downloads disabled — skipping download and extraction for '%s' (%d).",
+                map_obj.name,
+                map_obj.id,
+            )
 
     @staticmethod
     def is_newer_version(current_version: str, new_version: str) -> bool:
