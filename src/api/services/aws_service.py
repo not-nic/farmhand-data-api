@@ -118,3 +118,10 @@ class AwsService:
         except ClientError as exc:
             logger.warning("Failed to download '%s' from %s: %s", key, self.bucket, str(exc))
             raise
+
+    def delete_object(self, key: str) -> None:
+        """
+        Delete an object from a bucket.
+        :param key: The key of the Object to delete
+        """
+        raise NotImplementedError("Not Implemented.")
