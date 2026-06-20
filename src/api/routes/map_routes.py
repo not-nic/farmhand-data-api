@@ -15,7 +15,7 @@ from src.api.core.dependencies import SessionDep
 from src.api.core.logger import logger
 from src.api.core.schema.maps import MapModel, MapResponse, MapsResponse, MapUploadResponse
 from src.api.services.aws_service import AwsService
-from src.api.services.map_service import MapService
+from src.api.services.maps.map_service import MapService
 
 router = APIRouter(prefix="/maps", tags=["Maps"])
 

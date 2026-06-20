@@ -32,6 +32,16 @@ def parse_version(v: str) -> list:
     return [int(part) for part in v.split(".")]
 
 
+def is_newer_version(current_version: str, new_version: str) -> bool:
+    """
+    Compare two version strings like '1.0.0.0'.
+    Return True if new_version is greater.
+    :param new_version: The new map version from ModHub.
+    :param current_version: The current map version in the db
+    """
+    return parse_version(new_version) > parse_version(current_version)
+
+
 def format_file_size(file_size_bytes: int) -> str:
     """
     Converts a file size bytes response into a human-readable string (e.g. KB, MB, GB).

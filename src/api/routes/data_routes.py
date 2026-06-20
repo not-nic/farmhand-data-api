@@ -1,7 +1,7 @@
 from fastapi import APIRouter, BackgroundTasks, status
 
 from src.api.core.dependencies import SessionDep
-from src.api.services.map_service import MapService
+from src.api.services.maps.map_extraction_service import MapExtractionService
 
 router = APIRouter(prefix="/data", tags=["Data"])
 
@@ -11,6 +11,6 @@ async def extract_files_from_maps(db: SessionDep, background_tasks: BackgroundTa
     """
     (temp) extract files from maps saved in the farmhand bucket in a background task.
     """
-    map_service = MapService(db)
-    background_tasks.add_task(map_service.extract_files_from_all_maps)
+    map_extraction_service = MapExtractionService(db)
+    background_tasks.add_task(map_extraction_service.extract_files_from_all_maps)
     return {"message": "Started extracting all map data"}
