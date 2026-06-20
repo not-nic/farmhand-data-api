@@ -14,7 +14,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from src.api.core.dependencies import SessionDep
 from src.api.core.schema.mods import ModDetailModel
-from src.api.services.maps.map_scraping_service import MapScrapingService
+from src.api.services.maps.map_ingestion_service import MapIngestionService
 from src.api.services.modhub_service import ModHubService
 
 router = APIRouter(prefix="/scraper", tags=["Scraper"])
@@ -26,9 +26,9 @@ async def get_maps(db: SessionDep) -> dict:
     Get new maps from the Farming Simulator ModHub, store them in a bucket,
     and parse the required files.
     """
-    map_scraping_service = MapScrapingService(db)
+    map_ingestion_service = MapIngestionService(db)
     try:
-        await map_scraping_service.get_new_maps()
+        await map_ingestion_service.get_new_maps()
     except Exception as exc:
         raise HTTPException(detail=str(exc), status_code=status.HTTP_500_INTERNAL_SERVER_ERROR)
 

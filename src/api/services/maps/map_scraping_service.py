@@ -49,8 +49,12 @@ class MapScrapingService:
         """
         new_maps = []
         existing_map_ids: set = {map_obj.id for map_obj in self.map_service.get_maps()}
+        seen_ids: set = set()
 
         for mod_preview in await self._get_mod_hub_maps():
+            if mod_preview.id in seen_ids:
+                continue
+
             is_new_or_updated = mod_preview.label in [ModHubLabels.NEW, ModHubLabels.UPDATE]
             is_not_prefab = mod_preview.label != ModHubLabels.PREFAB
             not_in_db = mod_preview.id not in existing_map_ids
@@ -61,16 +65,19 @@ class MapScrapingService:
                 if not map_obj:
                     logger.info("New map: '%s' (%d)", mod_preview.name, mod_preview.id)
                     new_maps.append(NewMapCandidate(preview=mod_preview))
+                    seen_ids.add(mod_preview.id)
                     continue
 
                 candidate = await self._check_for_updated_map(mod_preview, map_obj)
                 if candidate:
                     new_maps.append(candidate)
+                    seen_ids.add(mod_preview.id)
 
             elif not_in_db and is_not_prefab:
                 candidate = await self._validate_untracked_map(mod_preview)
                 if candidate:
                     new_maps.append(candidate)
+                    seen_ids.add(mod_preview.id)
 
         logger.info("Found %d new map(s).", len(new_maps))
         return new_maps

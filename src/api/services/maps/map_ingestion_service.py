@@ -59,6 +59,7 @@ class MapIngestionService:
             logger.info("All scraped and downloaded maps up to date.")
             return
 
+        processed_count: int = 0
         for candidate in new_map_candidates:
             try:
                 map_obj: Map = await self.scraper_service.scrape_map_details(
@@ -78,9 +79,10 @@ class MapIngestionService:
                 continue
 
             await self.ingest_map(map_obj)
+            processed_count += 1
 
         logger.info(
-            "Successfully scraped and downloaded '%d' maps from the ModHub.", len(new_map_candidates)
+            "Successfully scraped and downloaded '%d' maps from the ModHub.", processed_count
         )
 
     async def ingest_map(self, map_obj: Map) -> None:
