@@ -3,10 +3,8 @@ Python module containing a class for downloading Mods from the ModHub
 and handling interaction with S3.
 """
 from botocore.exceptions import ClientError
-from httpx import HTTPError
+from httpx2 import HTTPError
 
-from src.api.core.config import settings
-from src.api.core.db.models import Map
 from src.api.core.logger import logger
 from src.api.services.aws_service import AwsService
 from src.api.services.modhub_service import ModHubService

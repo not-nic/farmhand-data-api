@@ -6,7 +6,7 @@ import datetime
 
 import pytest
 from fastapi import status
-from httpx import HTTPError
+from httpx2 import HTTPError
 
 from src.api.core.schema.mods import ModDetailModel
 from src.api.services.modhub_service import ModHubService

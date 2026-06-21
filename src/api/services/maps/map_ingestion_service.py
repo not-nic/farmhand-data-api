@@ -10,7 +10,7 @@ MapParsingService.extract_files_from_all_maps.
 """
 import time
 
-from httpx import HTTPError
+from httpx2 import HTTPError
 from sqlalchemy.orm import Session
 
 from src.api.core.config import settings

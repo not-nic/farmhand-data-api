@@ -6,7 +6,7 @@ pages.
 import time
 
 from bs4 import BeautifulSoup, Tag
-from httpx import AsyncClient, HTTPError, HTTPStatusError, Response
+from httpx2 import AsyncClient, HTTPError, HTTPStatusError, Response
 
 from src.api.constants import ModHubLabels
 from src.api.core.config import settings
