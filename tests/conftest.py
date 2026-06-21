@@ -11,7 +11,7 @@ import boto3
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from httpx import Request, Response
+from httpx2 import Request, Response
 from moto import mock_aws
 from mypy_boto3_s3.client import S3Client
 
@@ -85,7 +85,7 @@ def mock_mod_hub_page(mocker) -> callable:
         )
 
         async_mock = mocker.AsyncMock(return_value=mock_response)
-        mocker.patch("httpx.AsyncClient.get", async_mock)
+        mocker.patch("httpx2.AsyncClient.get", async_mock)
 
     return _mock_page
 
