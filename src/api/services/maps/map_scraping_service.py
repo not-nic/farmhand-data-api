@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 
 from sqlalchemy.orm import Session
 
-from src.api.constants import ModHubLabels, ModHubMapFilters
+from src.api.constants import ModHubLabels, ModHubMapFilters, IngestionStatus
 from src.api.core.db.models import Map
 from src.api.core.logger import logger
 from src.api.core.schema.maps import MapModel
@@ -120,7 +120,12 @@ class MapScrapingService:
                     f"Updating Map {mod_detail.name} ({mod_detail.id}) "
                     f"from version {mod_map.version} to {mod_detail.version}"
                 )
-                self.map_service.update_map(mod_map, version=mod_detail.version)
+                self.map_service.update_map(
+                    mod_map,
+                    version=mod_detail.version,
+                    ingestion_status=IngestionStatus.PENDING,
+                    ingestion_error=None,
+                )
                 mod_map = self.map_service.get_map_by_id(mod_map.id)
             else:
                 logger.info(

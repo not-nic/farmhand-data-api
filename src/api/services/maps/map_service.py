@@ -5,6 +5,7 @@ when new maps are released.
 
 from sqlalchemy.orm import Session
 
+from src.api.constants import IngestionStatus
 from src.api.core.db.models import Map
 from src.api.core.repositories import MapRepository
 from src.api.core.schema.maps import MapModel
@@ -36,6 +37,14 @@ class MapService:
         :return: (Optional) the map if it exists.
         """
         return self.map_repository.get_by_id(map_id)
+
+    def get_maps_by_status(self, status: IngestionStatus) -> list[Map]:
+        """
+        Retrieve a list of maps for a given ingestion status enum, e.g. PENDING, DOWNLOADED.
+        :param status: The ingestion status to retrieve.
+        :return: (list) A list of maps with a matching status.
+        """
+        return self.map_repository.get_by_status(status)
 
     def create_map(self, map_obj: MapModel) -> Map:
         """

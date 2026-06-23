@@ -4,9 +4,10 @@ Python module containing the map database model.
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, String
+from sqlalchemy import DateTime, Integer, String, Enum, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
+from src.api.constants import IngestionStatus
 from src.api.core.db.models._model_base import SqlAlchemyBase
 
 
@@ -38,3 +39,17 @@ class Map(SqlAlchemyBase):
     version: Mapped[str] = mapped_column(String(50), default="1.0.0.0", nullable=False)
     zip_filename: Mapped[str] = mapped_column(String(100), nullable=True)
     data_uri: Mapped[str] = mapped_column(String(255), nullable=True)
+
+    ingestion_status: Mapped[IngestionStatus] = mapped_column(
+        Enum(IngestionStatus, native_enum=False, length=20),
+        default=IngestionStatus.PENDING,
+        nullable=False,
+        index=True
+    )
+    ingestion_error: Mapped[str | None] = mapped_column(Text, nullable=True)
+    ingestion_updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=datetime.now,
+        onupdate=datetime.now,
+        nullable=False
+    )

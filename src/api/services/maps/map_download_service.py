@@ -1,7 +1,7 @@
 """
-Python module containing a class for downloading Mods from the ModHub
-and handling interaction with S3.
+Python module containing a class for downloading Mods from the ModHub and handling interaction with S3.
 """
+
 from botocore.exceptions import ClientError
 from httpx2 import HTTPError
 

@@ -5,10 +5,13 @@ Module containing a singleton utility for scheduling jobs with APScheduler.
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any
 
 from apscheduler.schedulers.base import BaseScheduler
 from apscheduler.triggers.base import BaseTrigger
+
+from src.api.core.logger import logger
 
 
 @dataclass
@@ -24,12 +27,13 @@ class JobModel:
     args: list | None = None
     kwargs: dict | None = None
     replace_existing: bool = True
+    run_immediately: bool = False
 
 
 class Scheduler:
     """
     Singleton Scheduler class for scheduling all jobs defined in the modules __init__.py
-    on the FastAPI application start up.
+    on the FastAPI application startup.
     """
 
     _instance = None
@@ -67,4 +71,13 @@ class Scheduler:
                 args=job.args,
                 kwargs=job.kwargs,
                 replace_existing=job.replace_existing,
+            )
+
+        logger.info("Jobs Scheduled: %s", [job.id for job in self.jobs])
+
+        for scheduled_job in scheduler.get_jobs():
+            logger.info(
+                "Job '%s' next run at %s",
+                scheduled_job.id,
+                scheduled_job.next_run_time,
             )

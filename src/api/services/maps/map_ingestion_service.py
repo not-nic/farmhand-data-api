@@ -1,18 +1,16 @@
 """
-Map Ingestion Service Module — the single place that knows the order
-of operations for taking a map from "discovered on ModHub" to "fully
-parsed and stored", and for re-running that pipeline against maps
-already in the database.
-
-This replaces the orchestration that used to be split between
-MapService.get_new_maps / _process_map_download and
-MapParsingService.extract_files_from_all_maps.
+A Python module containing the Map Ingestion Service, the overall
+service to manage, getting new maps, ingesting them, and storing map
+data.
 """
+import asyncio
 import time
 
+from botocore.exceptions import ClientError
 from httpx2 import HTTPError
 from sqlalchemy.orm import Session
 
+from src.api.constants import IngestionStatus
 from src.api.core.config import settings
 from src.api.core.db.models import Map
 from src.api.core.logger import logger
@@ -26,9 +24,9 @@ from src.api.services.maps.map_xml_parser_service import MapXmlParserService
 
 class MapIngestionService:
     """
-    Orchestrates the full map lifecycle: discover on ModHub, scrape
-    metadata, download the archive, extract it, parse the XML, persist
-    the result, and clean up the source archive.
+    Python class to manage the map ingestion scrape from ModHUb,
+    download the archive, extract it, parse the XML, persist
+    the result, and clean up.
     """
 
     def __init__(
@@ -59,7 +57,7 @@ class MapIngestionService:
             logger.info("All scraped and downloaded maps up to date.")
             return
 
-        processed_count: int = 0
+        scraped_count: int = 0
         for candidate in new_map_candidates:
             try:
                 map_obj: Map = await self.scraper_service.scrape_map_details(
@@ -78,36 +76,71 @@ class MapIngestionService:
             if map_obj is None:
                 continue
 
-            await self.ingest_map(map_obj)
-            processed_count += 1
+            scraped_count += 1
 
         logger.info(
-            "Successfully scraped and downloaded '%d' maps from the ModHub.", processed_count
+            "Successfully scraped and downloaded '%d' maps from the ModHub.", scraped_count
         )
 
-    async def ingest_map(self, map_obj: Map) -> None:
+    async def download_pending_maps(self) -> None:
         """
-        Run the download -> extract -> parse -> cleanup pipeline for a
-        single map if downloads are enabled.
-        :param map_obj: The map object to download and process.
+        Pick up every PENDING map and download it to S3.
+        Called by the scheduler on a short interval; each map is claimed
+        individually, so a single failure never blocks the rest of the batch.
         """
         if not settings.ENABLE_MAP_DOWNLOADS:
-            logger.info(
-                "Map downloads disabled — skipping download and extraction for '%s' (%d).",
-                map_obj.name,
-                map_obj.id,
-            )
+            logger.info("Map downloads disabled — skipping advance_pending_maps.")
             return
 
-        # Download and extract files from a map.
-        await self.download_service.download_map(map_obj.id, map_obj.zip_filename)
-        extraction_result = self.extraction_service.extract_map_files(map_obj)
+        pending_maps = self.map_service.get_maps_by_status(IngestionStatus.PENDING)[:10]
 
-        # Attempt to parse the required maps XML files.
-        self.xml_parser_service.parse_and_update()
+        if not pending_maps:
+            return
 
-        # TODO: add a delete_object(key: str) method to AwsService.
-        self.aws_service.delete_object(key=extraction_result.object_key)
+        logger.info("Found %d PENDING map(s) to download.", len(pending_maps))
+
+        for map_obj in pending_maps:
+            self.map_service.update_map(
+                map_obj,
+                ingestion_status=IngestionStatus.DOWNLOADING,
+                ingestion_error=None,
+            )
+
+        await asyncio.gather(*[self._download_map(map_obj) for map_obj in pending_maps])
+
+    async def _download_map(self, map_obj: Map) -> None:
+        """
+        Download a single map archive to S3 and advance its status, or
+        mark it FAILED with the error if anything goes wrong.
+        """
+        logger.info("Downloading map '%s' (%d).", map_obj.name, map_obj.id)
+        try:
+            await self.download_service.download_map(map_obj.id, map_obj.zip_filename)
+            self.map_service.update_map(
+                map_obj,
+                ingestion_status=IngestionStatus.DOWNLOADED,
+                ingestion_error=None,
+            )
+            logger.info("Map '%s' (%d) downloaded successfully.", map_obj.name, map_obj.id)
+        except (ClientError, HTTPError) as exc:
+            logger.error("Failed to download map '%s' (%d): %s", map_obj.name, map_obj.id, exc)
+            self.map_service.update_map(
+                map_obj,
+                ingestion_status=IngestionStatus.FAILED,
+                ingestion_error=str(exc),
+            )
+
+    def advance_downloaded_maps(self) -> None:
+        """Pick up every DOWNLOADED map and extract its files from S3."""
+        pass
+
+    def advance_extracted_maps(self) -> None:
+        """Pick up every EXTRACTED map and parse its XML files."""
+        pass
+
+    def advance_parsed_maps(self) -> None:
+        """Pick up every PARSED map, transfer assets, and mark it COMPLETE."""
+        pass
 
     async def reprocess_all_maps(self) -> None:
         """

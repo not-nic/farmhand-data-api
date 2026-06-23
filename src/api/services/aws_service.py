@@ -9,12 +9,21 @@ from pathlib import Path
 from typing import Literal
 
 import boto3
+from boto3.s3.transfer import TransferConfig
 from botocore.exceptions import ClientError
 from mypy_boto3_s3.client import S3Client
 
 from src.api.core.config import settings
 from src.api.core.logger import logger
 from src.api.utils import extension_to_content_type
+
+
+TRANSFER_CONFIG = TransferConfig(
+    multipart_threshold=64 * 1024 * 1024,
+    multipart_chunksize=64 * 1024 * 1024,
+    max_concurrency=8,
+    use_threads=True,
+)
 
 
 class AwsService:
@@ -74,7 +83,12 @@ class AwsService:
         """
         object_key = f"{mod_id}/{file_name}"
         try:
-            self.s3.upload_fileobj(BytesIO(file_obj), self.bucket, object_key)
+            self.s3.upload_fileobj(
+                BytesIO(file_obj),
+                self.bucket,
+                object_key,
+                Config=TRANSFER_CONFIG
+            )
             return f"s3://{self.bucket}/{object_key}"
         except ClientError as exc:
             logger.warning(
@@ -99,6 +113,7 @@ class AwsService:
                     self.bucket,
                     key,
                     ExtraArgs={"ContentType": extension_to_content_type(relative_path.suffix)},
+                    Config=TRANSFER_CONFIG
                 )
                 logger.debug("Uploading '%s' to %s ", key, self.bucket)
             except ClientError as exc:
@@ -114,7 +129,12 @@ class AwsService:
         :param download_location: The temp-file in which the object is saved.
         """
         try:
-            self.s3.download_file(Bucket=self.bucket, Key=key, Filename=download_location)
+            self.s3.download_file(
+                Bucket=self.bucket,
+                Key=key,
+                Filename=download_location,
+                Config=TRANSFER_CONFIG
+            )
         except ClientError as exc:
             logger.warning("Failed to download '%s' from %s: %s", key, self.bucket, str(exc))
             raise

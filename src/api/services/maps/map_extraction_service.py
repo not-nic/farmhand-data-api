@@ -1,3 +1,8 @@
+"""
+A Python module containing a map extraction service to manage the file extraction
+from a zip archive that can be parsed within the xml parsing service.
+"""
+
 import time
 from tempfile import NamedTemporaryFile
 from zipfile import BadZipFile
@@ -13,6 +18,10 @@ from src.api.services.maps.map_service import MapService
 
 
 class MapExtractionService:
+    """
+    Python class to extract the required files from a farming simulator
+    .zip archive based on a provided configuration file.
+    """
     def __init__(
             self,
             db: Session,
