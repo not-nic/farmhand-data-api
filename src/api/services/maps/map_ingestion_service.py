@@ -84,14 +84,15 @@ class MapIngestionService:
 
     async def download_pending_maps(self) -> None:
         """
-        Pick up every PENDING map and download it to S3.
-        Called by the scheduler on a short interval; each map is claimed
-        individually, so a single failure never blocks the rest of the batch.
+        Check all maps with a status of PENDING and download it from the ModHub
+        and store the archive in S3.
+        Called by the AP Scheduler on a set interval to keep up with mods.
         """
         if not settings.ENABLE_MAP_DOWNLOADS:
             logger.info("Map downloads disabled — skipping advance_pending_maps.")
             return
 
+        # TODO: Capped at 10 retrievals for testing to not fill up my docker volume.
         pending_maps = self.map_service.get_maps_by_status(IngestionStatus.PENDING)[:10]
 
         if not pending_maps:

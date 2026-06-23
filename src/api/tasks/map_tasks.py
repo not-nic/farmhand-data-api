@@ -24,9 +24,8 @@ async def get_new_maps() -> None:
 
 async def download_pending_maps() -> None:
     """
-    Background task to pick up all PENDING maps and download them to S3.
-    Maps are claimed as DOWNLOADING before the transfer starts, so
-    later ticks cannot attempt the same download concurrently.
+    Background task to select PENDING maps and download them from the ModHub
+    and store them in S3.
     """
     with db_session() as db:
         logger.info("[MAP TASKS]: Checking for PENDING maps to download.")
