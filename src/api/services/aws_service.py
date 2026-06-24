@@ -2,17 +2,18 @@
 Python module containing an AWS service to interact with AWS managed services through
 boto3, primarily S3 / MinIO buckets.
 """
-
+import io
 from io import BytesIO
 from os import PathLike
 from pathlib import Path
-from typing import Literal
+from typing import Literal, Iterator
 
 import boto3
 from boto3.s3.transfer import TransferConfig
 from botocore.exceptions import ClientError
 from mypy_boto3_s3.client import S3Client
 
+from src.api.adapters import IteratorAsFileObj
 from src.api.core.config import settings
 from src.api.core.logger import logger
 from src.api.utils import extension_to_content_type
@@ -28,8 +29,7 @@ TRANSFER_CONFIG = TransferConfig(
 
 class AwsService:
     """
-    AWS service class used for uploading items to S3, primary Farming Simulator mod
-    maps and their extracted contents.
+    AWS service class used for uploading items into S3.
     """
 
     def __init__(self, bucket_name: str | None = None):
@@ -121,6 +121,29 @@ class AwsService:
                 raise
 
         return f"s3://{self.bucket}/{object_key}"
+
+    def upload_stream(self, stream: Iterator[bytes], mod_id: int, file_name: str) -> str:
+        """
+        Streams a file object directly to the Bucket.
+        :param stream: An iterator of bytes chunks to stream to S3.
+        :param mod_id: The 'id' of the mod from the ModHub.
+        :param file_name: The filename of the object.
+        :return: A S3 URI of the location.
+        """
+        object_key = f"{mod_id}/{file_name}"
+        try:
+            self.s3.upload_fileobj(
+                io.BufferedReader(IteratorAsFileObj(stream)),
+                self.bucket,
+                object_key,
+                Config=TRANSFER_CONFIG,
+            )
+            return f"s3://{self.bucket}/{object_key}"
+        except ClientError as exc:
+            logger.warning(
+                "Failed to upload '%s' to %s. Reason: %s", object_key, self.bucket, str(exc)
+            )
+            raise
 
     def download_object(self, key, download_location: PathLike | str) -> None:
         """

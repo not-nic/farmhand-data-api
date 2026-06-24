@@ -109,6 +109,8 @@ class MapIngestionService:
 
         await asyncio.gather(*[self._download_map(map_obj) for map_obj in pending_maps])
 
+        logger.info("All %d map(s) downloaded.", len(pending_maps))
+
     async def _download_map(self, map_obj: Map) -> None:
         """
         Download a single map archive to S3 and advance its status, or
@@ -122,7 +124,6 @@ class MapIngestionService:
                 ingestion_status=IngestionStatus.DOWNLOADED,
                 ingestion_error=None,
             )
-            logger.info("Map '%s' (%d) downloaded successfully.", map_obj.name, map_obj.id)
         except (ClientError, HTTPError) as exc:
             logger.error("Failed to download map '%s' (%d): %s", map_obj.name, map_obj.id, exc)
             self.map_service.update_map(
