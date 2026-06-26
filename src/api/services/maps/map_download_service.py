@@ -9,7 +9,6 @@ from httpx2 import HTTPError
 from src.api.core.logger import logger
 from src.api.services.aws_service import AwsService
 from src.api.services.modhub_service import ModHubService
-from src.api.utils import format_file_size
 
 
 class MapDownloadService:

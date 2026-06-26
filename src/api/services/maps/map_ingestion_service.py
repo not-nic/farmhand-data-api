@@ -3,7 +3,6 @@ A Python module containing the Map Ingestion Service, the overall
 service to manage, getting new maps, ingesting them, and storing map
 data.
 """
-import asyncio
 import time
 from zipfile import BadZipFile
 

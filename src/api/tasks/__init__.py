@@ -3,9 +3,7 @@ Python module containing scheduler jobs definitions.
 """
 from datetime import UTC, datetime, timedelta
 
-from apscheduler.triggers.combining import OrTrigger
 from apscheduler.triggers.cron import CronTrigger
-from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 from src.api.tasks.map_tasks import (
