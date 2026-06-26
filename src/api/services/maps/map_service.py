@@ -2,6 +2,7 @@
 Map Service Module currently used for manually scraping map data
 when new maps are released.
 """
+from datetime import datetime
 
 from sqlalchemy.orm import Session
 
@@ -68,3 +69,12 @@ class MapService:
         Get all maps that have extracted data uploaded.
         """
         return self.map_repository.get_with_data_uri()
+
+    def get_stalled_maps(self, status: IngestionStatus, stalled_before: datetime) -> list[Map]:
+        """
+        Gets all stalled maps from the repository.
+        :param status: (IngestionStatus) The ingestion stage.
+        :param stalled_before: (datetime) a datetime value to decide what's 'stalled'.
+        :return: List of stalled maps.
+        """
+        return self.map_repository.get_stalled(status, stalled_before)

@@ -10,6 +10,7 @@ from src.api.tasks.map_tasks import (
     download_pending_maps,
     extract_files_from_maps,
     get_new_maps,
+    retry_stalled_downloads,
 )
 from src.api.tasks.scheduler import JobModel, Scheduler
 
@@ -51,3 +52,12 @@ base_scheduler.add_job(
     )
 )
 
+# Schedule job to reprocess stalled maps stuck in a 'DOWNLOADING' state back to 'PENDING'
+base_scheduler.add_job(
+    JobModel(
+        func=retry_stalled_downloads,
+        trigger=IntervalTrigger(hours=1),
+        id="retry_stalled_downloads",
+        name="Reset stalled DOWNLOADING maps back to PENDING",
+    )
+)

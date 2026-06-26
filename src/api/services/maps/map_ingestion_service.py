@@ -21,6 +21,7 @@ from src.api.services.maps.map_extraction_service import MapExtractionService
 from src.api.services.maps.map_scraping_service import MapScrapingService
 from src.api.services.maps.map_service import MapService
 from src.api.services.maps.map_xml_parser_service import MapXmlParserService
+from src.api.services.maps.recovery.map_recovery_service import MapRecoveryService
 
 
 class MapIngestionService:
@@ -39,6 +40,7 @@ class MapIngestionService:
             extraction_service: MapExtractionService | None = None,
             xml_parser_service: MapXmlParserService | None = None,
             aws_service: AwsService | None = None,
+            recovery_service: MapRecoveryService | None = None,
     ):
         self.map_service = map_service or MapService(db)
         self.scraper_service = scraper_service or MapScrapingService(db)
@@ -46,6 +48,7 @@ class MapIngestionService:
         self.extraction_service = extraction_service or MapExtractionService(db)
         self.xml_parser_service = xml_parser_service or MapXmlParserService(db)
         self.aws_service = aws_service or AwsService()
+        self.recovery_service = recovery_service or MapRecoveryService(db)
 
     async def get_new_maps(self) -> None:
         """
@@ -110,26 +113,9 @@ class MapIngestionService:
 
         logger.info("All %d map(s) downloaded.", len(pending_maps))
 
-    async def _download_map(self, map_obj: Map) -> None:
-        """
-        Download a single map archive to S3 and advance its status, or
-        mark it FAILED with the error if anything goes wrong.
-        """
-        logger.info("Downloading map '%s' (%d).", map_obj.name, map_obj.id)
-        try:
-            await self.download_service.download_map(map_obj.id, map_obj.zip_filename)
-            self.map_service.update_map(
-                map_obj,
-                ingestion_status=IngestionStatus.DOWNLOADED,
-                ingestion_error=None,
-            )
-        except (ClientError, HTTPError) as exc:
-            logger.error("Failed to download map '%s' (%d): %s", map_obj.name, map_obj.id, exc)
-            self.map_service.update_map(
-                map_obj,
-                ingestion_status=IngestionStatus.FAILED,
-                ingestion_error=str(exc),
-            )
+    async def reprocess_stalled_downloads(self) -> None:
+        """Reset maps stalled at DOWNLOADING back to PENDING."""
+        await self.recovery_service.retry_stalled_downloads()
 
     def extract_files_from_maps(self) -> None:
         """
@@ -157,33 +143,6 @@ class MapIngestionService:
 
         logger.info("Finished extraction pass for %d map(s).", len(downloaded_maps))
 
-    def _extract_map(self, map_obj: Map) -> None:
-        """
-        Extract and restructure files for a single map and advance its status,
-        or mark it FAILED with the error if anything goes wrong.
-        """
-        logger.info("Extracting files from map '%s' (%d).", map_obj.name, map_obj.id)
-        try:
-            self.extraction_service.extract_map_files(map_obj)
-            self.map_service.update_map(
-                map_obj,
-                ingestion_status=IngestionStatus.EXTRACTED,
-                ingestion_error=None,
-            )
-            # Delete archive after files successfully extracted.
-            archive_key = f"{map_obj.id}/{map_obj.zip_filename}"
-            self.aws_service.delete_object(key=archive_key)
-
-        except (MapProcessingError, BadZipFile, ClientError) as exc:
-            logger.error(
-                "Failed to extract map '%s' (%d): %s", map_obj.name, map_obj.id, exc
-            )
-            self.map_service.update_map(
-                map_obj,
-                ingestion_status=IngestionStatus.FAILED,
-                ingestion_error=str(exc),
-            )
-
     def advance_extracted_maps(self) -> None:
         """Pick up every EXTRACTED map and parse its XML files."""
         pass
@@ -207,3 +166,52 @@ class MapIngestionService:
 
         elapsed_time = time.monotonic() - start_time
         logger.debug("Extracted data from %d maps in %.2f seconds.", len(maps), elapsed_time)
+
+    async def _download_map(self, map_obj: Map) -> None:
+        """
+        Download a single map archive to S3 and advance its status, or
+        mark it FAILED with the error if anything goes wrong.
+        """
+        logger.info("Downloading map '%s' (%d).", map_obj.name, map_obj.id)
+        try:
+            await self.download_service.download_map(map_obj.id, map_obj.zip_filename)
+            self.map_service.update_map(
+                map_obj,
+                ingestion_status=IngestionStatus.DOWNLOADED,
+                ingestion_error=None,
+            )
+        except (ClientError, HTTPError) as exc:
+            logger.error("Failed to download map '%s' (%d): %s", map_obj.name, map_obj.id, exc)
+            self.map_service.update_map(
+                map_obj,
+                ingestion_status=IngestionStatus.FAILED,
+                ingestion_error=str(exc),
+            )
+
+    def _extract_map(self, map_obj: Map) -> None:
+        """
+        Extract and restructure files for a single map and advance its status,
+        or mark it FAILED with the error if anything goes wrong.
+        """
+        logger.info("Extracting files from map '%s' (%d).", map_obj.name, map_obj.id)
+        try:
+            self.extraction_service.extract_map_files(map_obj)
+            self.map_service.update_map(
+                map_obj,
+                ingestion_status=IngestionStatus.EXTRACTED,
+                ingestion_error=None,
+            )
+
+            # Delete archive after files successfully extracted.
+            archive_key = f"{map_obj.id}/{map_obj.zip_filename}"
+            self.aws_service.delete_object(key=archive_key)
+
+        except (MapProcessingError, BadZipFile, ClientError) as exc:
+            logger.error(
+                "Failed to extract map '%s' (%d): %s", map_obj.name, map_obj.id, exc
+            )
+            self.map_service.update_map(
+                map_obj,
+                ingestion_status=IngestionStatus.FAILED,
+                ingestion_error=str(exc),
+            )
