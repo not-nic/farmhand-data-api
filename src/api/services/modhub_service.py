@@ -4,9 +4,11 @@ pages.
 """
 
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 
 from bs4 import BeautifulSoup, Tag
-from httpx import AsyncClient, HTTPError, HTTPStatusError, Response
+from httpx2 import AsyncClient, HTTPError, HTTPStatusError, Response, stream
 
 from src.api.constants import ModHubLabels
 from src.api.core.config import settings
@@ -42,6 +44,20 @@ class ModHubService:
         logger.info(f"Downloaded file size: {format_file_size(file_size)}")
 
         return response.content
+
+    @contextmanager
+    def download_mod_stream(self, file_url: str) -> Iterator[Response]:
+        """
+        Streams a mod download from the Giants Software CDN.
+        :param file_url: The file to download.
+        :return: A context manager yielding the streaming httpx2 response.
+        """
+        headers = {
+            "Referer": settings.BASE_FS_URL,
+        }
+        with stream("GET", file_url, headers=headers) as response:
+            response.raise_for_status()
+            yield response
 
     async def get_download_url(
         self, mod_id: int | None = None, page_contents: BeautifulSoup | None = None

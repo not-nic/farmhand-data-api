@@ -1,10 +1,10 @@
 """
 Python module containing farmhand repositories.
 
-Farmhand follows the repository pattern and each database model should
-inherit from a repository and if any custom database logic is required
+Farmhand follows the repository pattern, and each database model should
+inherit from a repository, and if any custom database logic is required
 
-e.g. getting all fields that share the same crop it should be written
+E.g. getting all fields that share the same crop, it should be written
 as a method within its own <model_name>Repository.
 """
 
@@ -49,28 +49,22 @@ class Repository[T: DeclarativeBase]:
         """
         return self.db.get(self.model, id)
 
-    def delete(self, id: UUID | int) -> None:
+    def delete(self, obj: T) -> None:
         """
-        delete an object by an ID
-        :param id: the id of the record to be deleted
-        :return: the deleted object
+        Delete an already-fetched object directly.
+        :param obj: The model instance to delete.
         """
-        obj = self.get_by_id(id)
-        if obj:
-            self.db.delete(obj)
-            self.db.commit()
+        self.db.delete(obj)
+        self.db.commit()
 
-    def update(self, id: UUID | int, **kwargs) -> T | None:
+    def update(self, obj: T, **kwargs) -> T:
         """
-        Update an existing record in the database.
-        :param id: the id of the record to update.
-        :param kwargs: parameters to update, i.e. Model.update(id, value_1="some-id")
-        :return: the updated object, or None if the object doesn't exist
+        Update an already-fetched object directly.
+        :param obj: The model instance to update.
+        :param kwargs: Fields to update, e.g. update_obj(farm, name="new name")
+        :return: the updated object
         """
-        obj = self.get_by_id(id)
-        if obj:
-            for key, value in kwargs.items():
-                setattr(obj, key, value)
-            self.db.commit()
-            return obj
-        return None
+        for key, value in kwargs.items():
+            setattr(obj, key, value)
+        self.db.commit()
+        return obj

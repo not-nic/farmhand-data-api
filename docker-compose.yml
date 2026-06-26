@@ -9,6 +9,8 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
 
+      ENABLE_MAP_DOWNLOADS: ${ENABLE_MAP_DOWNLOADS}
+
       TESTING: ${TESTING}
 
       AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
@@ -22,7 +24,7 @@ services:
     container_name: farmhand-data-api
     depends_on:
       - database
-#      - minio
+      - minio
     ports:
       - "8001:8000"
   database:
@@ -36,34 +38,34 @@ services:
       - "5433:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-#  minio:
-#    image: minio/minio:latest
-#    container_name: farmhand-minio-storage
-#    command: server /data --console-address ":9001"
-#    ports:
-#      - "9000:9000" # S3-compatible API
-#      - "9001:9001" # MinIO Console
-#    environment:
-#      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID}
-#      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY}
-#    volumes:
-#      - minio_data:/data
-#  minio-init:
-#    image: minio/mc
-#    container_name: farmhand-minio-init
-#    depends_on:
-#      - minio
-#    entrypoint: >
-#      /bin/sh -c "
-#        sleep 5;
-#        mc alias set myminio http://minio:9000 ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_KEY};
-#        mc ls myminio || true;
-#        mc mb myminio/${AWS_S3_BUCKET_NAME} || true;
-#      "
-#    environment:
-#      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
-#      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
-#      AWS_S3_BUCKET_NAME: ${AWS_S3_BUCKET_NAME}
+  minio:
+    image: minio/minio:latest
+    container_name: farmhand-minio-storage
+    command: server /data --console-address ":9001"
+    ports:
+      - "9000:9000" # S3-compatible API
+      - "9001:9001" # MinIO Console
+    environment:
+      MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID}
+      MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY}
+    volumes:
+      - minio_data:/data
+  minio-init:
+    image: minio/mc
+    container_name: farmhand-minio-init
+    depends_on:
+      - minio
+    entrypoint: >
+      /bin/sh -c "
+        sleep 5;
+        mc alias set myminio http://minio:9000 ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_KEY};
+        mc ls myminio || true;
+        mc mb myminio/${AWS_S3_BUCKET_NAME} || true;
+      "
+    environment:
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_S3_BUCKET_NAME: ${AWS_S3_BUCKET_NAME}
 
 volumes:
   postgres_data:

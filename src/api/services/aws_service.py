@@ -2,25 +2,36 @@
 Python module containing an AWS service to interact with AWS managed services through
 boto3, primarily S3 / MinIO buckets.
 """
-
+import io
+from collections.abc import Iterator
 from io import BytesIO
 from os import PathLike
 from pathlib import Path
 from typing import Literal
 
 import boto3
+from boto3.s3.transfer import TransferConfig
 from botocore.exceptions import ClientError
+from mypy_boto3_s3 import ListObjectsV2Paginator
 from mypy_boto3_s3.client import S3Client
+from mypy_boto3_s3.type_defs import ObjectIdentifierTypeDef
 
+from src.api.adapters import IteratorAsFileObj
 from src.api.core.config import settings
 from src.api.core.logger import logger
 from src.api.utils import extension_to_content_type
 
+TRANSFER_CONFIG = TransferConfig(
+    multipart_threshold=64 * 1024 * 1024,
+    multipart_chunksize=64 * 1024 * 1024,
+    max_concurrency=8,
+    use_threads=True,
+)
+
 
 class AwsService:
     """
-    AWS service class used for uploading items to S3, primary Farming Simulator mod
-    maps and their extracted contents.
+    AWS service class used for uploading items into S3.
     """
 
     def __init__(self, bucket_name: str | None = None):
@@ -74,7 +85,12 @@ class AwsService:
         """
         object_key = f"{mod_id}/{file_name}"
         try:
-            self.s3.upload_fileobj(BytesIO(file_obj), self.bucket, object_key)
+            self.s3.upload_fileobj(
+                BytesIO(file_obj),
+                self.bucket,
+                object_key,
+                Config=TRANSFER_CONFIG
+            )
             return f"s3://{self.bucket}/{object_key}"
         except ClientError as exc:
             logger.warning(
@@ -99,6 +115,7 @@ class AwsService:
                     self.bucket,
                     key,
                     ExtraArgs={"ContentType": extension_to_content_type(relative_path.suffix)},
+                    Config=TRANSFER_CONFIG
                 )
                 logger.debug("Uploading '%s' to %s ", key, self.bucket)
             except ClientError as exc:
@@ -107,14 +124,105 @@ class AwsService:
 
         return f"s3://{self.bucket}/{object_key}"
 
+    def upload_stream(self, stream: Iterator[bytes], mod_id: int, file_name: str) -> str:
+        """
+        Streams a file object directly to the Bucket.
+        :param stream: An iterator of bytes chunks to stream to S3.
+        :param mod_id: The 'id' of the mod from the ModHub.
+        :param file_name: The filename of the object.
+        :return: A S3 URI of the location.
+        """
+        object_key = f"{mod_id}/{file_name}"
+        try:
+            self.s3.upload_fileobj(
+                io.BufferedReader(IteratorAsFileObj(stream)),
+                self.bucket,
+                object_key,
+                Config=TRANSFER_CONFIG,
+            )
+            return f"s3://{self.bucket}/{object_key}"
+        except ClientError as exc:
+            logger.warning(
+                "Failed to upload '%s' to %s. Reason: %s", object_key, self.bucket, str(exc)
+            )
+            raise
+
     def download_object(self, key, download_location: PathLike | str) -> None:
         """
         Function to download an object from S3 and save it to a temporary file.
-        :param key: The key of the S3 object to download.
+        :param key: The key of the S3 object is to download.
         :param download_location: The temp-file in which the object is saved.
         """
         try:
-            self.s3.download_file(Bucket=self.bucket, Key=key, Filename=download_location)
+            self.s3.download_file(
+                Bucket=self.bucket,
+                Key=key,
+                Filename=download_location,
+                Config=TRANSFER_CONFIG
+            )
         except ClientError as exc:
             logger.warning("Failed to download '%s' from %s: %s", key, self.bucket, str(exc))
+            raise
+
+    def delete_object(self, key: str) -> None:
+        """
+        Delete an object from a bucket.
+        :param key: The key of the Object to delete
+        """
+        try:
+            self.s3.delete_object(Bucket=self.bucket, Key=key)
+            logger.debug("Deleted '%s' from %s.", key, self.bucket)
+        except ClientError as exc:
+            logger.warning("Failed to delete '%s' from %s: %s", key, self.bucket, exc)
+            raise
+
+    def list_objects(self, prefix: str) -> list[tuple[str, int]]:
+        """
+        List all objects under a prefix and return their keys and sizes in bytes.
+
+        :param prefix: The S3 key prefix to list under (e.g. "359448/").
+        :return: List of (key, size_in_bytes) tuples.
+        """
+        results: list[tuple[str, int]] = []
+
+        try:
+            paginator: ListObjectsV2Paginator = self.s3.get_paginator("list_objects_v2")
+
+            for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
+                for obj in page.get("Contents", []):
+                    results.append((obj["Key"], obj["Size"]))
+
+            return results
+        except ClientError as exc:
+            logger.warning("Failed to list prefix '%s' from %s: %s", prefix, self.bucket, exc)
+            raise
+
+    def delete_prefix(self, prefix: str) -> int:
+        """
+        Delete all objects under an S3 prefix.
+
+        :param prefix: Prefix to delete (e.g. "123/map")
+        :return: Number of deleted objects.
+        """
+        deleted: int = 0
+
+        try:
+            paginator: ListObjectsV2Paginator = self.s3.get_paginator("list_objects_v2")
+
+            for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
+                contents = page.get("Contents", [])
+                if not contents:
+                    continue
+
+                objects: list[ObjectIdentifierTypeDef] = [{"Key": obj["Key"]} for obj in contents]
+                self.s3.delete_objects(
+                    Bucket=self.bucket,
+                    Delete={"Objects": objects},
+                )
+
+                deleted += len(objects)
+            logger.debug("Deleted %d object(s) under prefix '%s' from %s.", deleted, prefix, self.bucket)
+            return deleted
+        except ClientError as exc:
+            logger.warning("Failed to delete prefix '%s' from %s: %s", prefix, self.bucket, exc)
             raise

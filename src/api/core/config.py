@@ -28,6 +28,8 @@ class BaseSettingsConfig(BaseSettings):
     BASE_MODS_URL: str = f"{BASE_FS_URL}/mods.php"
     BASE_MOD_URL: str = f"{BASE_FS_URL}/mod.php"
 
+    MAX_MAP_DOWNLOADS: int = 10
+
 
 class Settings(BaseSettingsConfig):
     """

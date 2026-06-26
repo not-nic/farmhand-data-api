@@ -58,3 +58,28 @@ class ContentType(StrEnum):
     JPG = "image/jpeg"
     JPEG = "image/jpeg"
     BINARY_OCTET_STREAM = "binary/octet-stream"
+
+
+class IngestionStatus(StrEnum):
+    """
+    Ingestion Status Enums for map processing.
+
+    Steps:
+        - Pending: The Mod has been scraped from the ModHub.
+        - Downloaded: The mod has been downloaded and stored in the S3/MinIO bucket.
+        - Extracted: The required files have been extracted from the bucket, stored in S3,
+                     and the archive deleted.
+        - Parsed: The files are parsed, and the database updated with ModDesc, XML Data, etc.
+        - Complete: The mod is ingested.
+        - Failed: it failed on one of these steps and needs to be retried.
+    """
+
+    PENDING = "pending"
+    DOWNLOADING = "downloading"
+    DOWNLOADED = "downloaded"
+    EXTRACTING = "extracting"
+    EXTRACTED = "extracted"
+    PARSING = "parsing"
+    PARSED = "parsed"
+    COMPLETE = "complete"
+    FAILED = "failed"

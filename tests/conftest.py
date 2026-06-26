@@ -2,7 +2,7 @@
 Pytest conftest.py module containing test setup, TestClient Fixtures and other mocks.
 """
 
-from collections.abc import Generator
+from collections.abc import Callable, Generator
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
@@ -11,7 +11,7 @@ import boto3
 import pytest
 from fastapi import status
 from fastapi.testclient import TestClient
-from httpx import Request, Response
+from httpx2 import Request, Response
 from moto import mock_aws
 from mypy_boto3_s3.client import S3Client
 
@@ -66,7 +66,7 @@ def mock_s3() -> Generator[tuple[S3Client, str], Any]:
 
 
 @pytest.fixture
-def mock_mod_hub_page(mocker) -> callable:
+def mock_mod_hub_page(mocker) -> Callable:
     """
     Create a fixture for a ModHub page, define which HTML resource should be
     returned and what status code.
@@ -85,7 +85,7 @@ def mock_mod_hub_page(mocker) -> callable:
         )
 
         async_mock = mocker.AsyncMock(return_value=mock_response)
-        mocker.patch("httpx.AsyncClient.get", async_mock)
+        mocker.patch("httpx2.AsyncClient.get", async_mock)
 
     return _mock_page
 
@@ -125,10 +125,19 @@ def mock_mod_hub_service(mocker, mod_detail) -> ModHubService:
     mock_service.get_pages.return_value = [0]
     mock_service.scrape_mod.return_value = mod_detail
     mock_service.scrape_mods.return_value = []
-    mock_service.download_mod.return_value = b"zip-file-contents"
-    mock_service.get_download_url.return_value = (
-        f"{settings.BASE_FS_URL}/download/{mod_detail.zip_filename}"
+    # remove: mock_service.download_mod.return_value = b"zip-file-contents"
+    mock_service.get_download_url = mocker.AsyncMock(
+        return_value=f"{settings.BASE_FS_URL}/download/{mod_detail.zip_filename}"
     )
+
+    mock_response = mocker.MagicMock()
+    mock_response.headers = {"content-length": "12"}
+    mock_response.__iter__.return_value = iter([b"zip-", b"file-", b"contents"])
+
+    mock_stream = mocker.MagicMock()
+    mock_stream.__enter__.return_value = mock_response
+    mock_stream.__exit__.return_value = False
+    mock_service.download_mod_stream.return_value = mock_stream
 
     mocker.patch("src.api.services.modhub_service.ModHubService", new=mock_service)
 
@@ -165,6 +174,8 @@ def mock_file_parser_service(mocker) -> Generator[FileParserService, Any]:
     mock_file_parser_service = mocker.Mock()
     mock_file_parser_service.extract_zip.return_value = mock_extracted
     mock_file_parser_service.restructure_files.return_value = restructured_files
+    mock_file_parser_service.remove_unwanted_extras.return_value = restructured_files
+    mock_file_parser_service.filter_extra_content.return_value = restructured_files
 
     yield mock_file_parser_service
 

@@ -1,7 +1,7 @@
 """
-Python module containing the FileParserService and supporting Dataclass.
+Python module containing the FileParserService and supporting dataclass.
 
-These classes are used for parsing a save game, filtering out unsued files
+These classes are used for parsing a save game, filtering out unsued files,
 and restructuring data into a standardised format.
 """
 
@@ -20,8 +20,8 @@ from src.api.core.schema.config import ConfigModel, ParserFilterModel
 @dataclass
 class ExtractedZip:
     """
-    Extracted Zip dataclass containing files, root directory
-    and the temporary directory this has been stored in.
+    A resulting zip, containing the filtered files, the root of the temp directory,
+    and a reference to the TemporaryDirectory so that it can be cleaned up.
     """
 
     files: list[Path]
@@ -31,238 +31,236 @@ class ExtractedZip:
 
 class FileParserService:
     """
-    File Parser Service class used for parsing files from a Farming Simulator Mod File.
+    Python service to extract files from a Farming Simulator mod .zip archive and
+    restructures them into a standardised farmhand directory layout.
 
-    Extracts all files from an FS .zip file, reformats the directory and filters out
-    any unused files.
+    Filtering is based on an allowlist defined in config/application.yml; a file
+    is kept on a glob pattern of if it lives under a known extra_context directory.
+
+    Anything not explicitly wanted is discarded.
     """
 
+    DIRECTORY_SCHEMA: dict[str, list[str]] = {
+        "config": [".xml"],
+        "assets": [".dds", ".png", ".jpg", ".jpeg"],
+        "data": [".grle"],
+        "map": [".i3d"],
+    }
+
+    FALLBACK_DIRECTORY = "unused"
+    EXTRA_ASSET_DIRS: set = {"sounds", "textures", "models", "effects", "particles"}
+
     def __init__(
-        self, filters: ParserFilterModel | None = None, parser_directory_schema: dict | None = None
+        self,
+        filters: ParserFilterModel | None = None,
+        parser_directory_schema: dict | None = None,
     ):
-        """
-        Constructor for the FileParserService.
-        :param filters: (FilterModel) .yaml configuration for filtering out files from a Mod.
-        :param parser_directory_schema: (dict) for the restructured directory.
-        """
         self.config = ConfigModel.from_yaml_file(settings.APPLICATION_CONFIG)
         self.filters = filters or self.config.farmhand.parser_filters
         self.extra_content = self.config.farmhand.extra_content
+        self.parser_directory_schema = parser_directory_schema or self.DIRECTORY_SCHEMA
 
-        self.parser_directory_schema = parser_directory_schema or {
-            "config": [".xml"],
-            "assets": [".dds", ".png", ".jpg", ".jpeg"],
-            "data": [".grle"],
-            "map": [".i3d"],
-            "unused": set(),
-        }
+        self._include_patterns: list[str] = self.filters.always_include.flatten()
+        self._extra_content_lower: set[str] = {e.lower() for e in self.extra_content}
+        self._excluded_files: set[str] = set(self.filters.excluded_files)
 
     def extract_zip(self, filename: str) -> ExtractedZip:
         """
-        Function to extract and filter out files from a Farming Simulator Mod.
-        :param filename: the .zip file to extract (e.g. FS25_mod.zip)
-        :return: (ExtractedZip) of the filtered files, root directory and temporary directory
-        files are stored in.
-        """
+        Extract a mod archive and return only the files that pass the allowlist.
 
+        :param filename: Path to the .zip to extract.
+        :raises FileNotFoundError: If the zip does not exist.
+        :raises BadZipFile: If the file is not a valid zip archive.
+        :raises PermissionError: If the file cannot be read.
+        """
         temp_dir = TemporaryDirectory()
         root_dir = Path(temp_dir.name)
 
         try:
             with ZipFile(filename, "r") as zip_file:
                 zip_file.extractall(root_dir)
-        except FileNotFoundError:
-            logger.warning(f"[File Parser]: ZIP with file {filename} not found...")
-            temp_dir.cleanup()
-            raise
-        except BadZipFile:
-            logger.warning(f"[File Parser]: File '{filename}' is not a valid ZIP archive.")
-            temp_dir.cleanup()
-            raise
-        except PermissionError:
-            logger.warning(f"[File Parser]: Permission denied when accessing '{filename}'.")
+        except (FileNotFoundError, BadZipFile, PermissionError) as exc:
+            logger.warning("[File Parser]: Failed to open '%s': %s", filename, exc)
             temp_dir.cleanup()
             raise
 
         all_files = [f for f in root_dir.rglob("*") if f.is_file()]
+        kept = [f for f in all_files if self._should_keep(f.relative_to(root_dir))]
 
-        if not all_files:
-            logger.warning("[File Parser]: ZIP file is empty or contains no valid files.")
+        logger.debug(
+            "[File Parser]: %d -> %d files kept after allowlist filter.",
+            len(all_files),
+            len(kept),
+        )
 
-        logger.info(f"[File Parser]: Extracted {len(all_files)} files from {root_dir}")
-
-        filtered_files = self.apply_filters(all_files, root_dir)
-
-        logger.info(f"[File Parser]: Based on filters '{len(filtered_files)}' files are valid.")
-
-        return ExtractedZip(files=filtered_files, root_dir=root_dir, temp_dir=temp_dir)
+        return ExtractedZip(files=kept, root_dir=root_dir, temp_dir=temp_dir)
 
     def restructure_files(self, files: list[Path], root_dir: Path) -> list[Path]:
         """
-        Function to restructure the directory of extracted files into a 'farmhand'
-        format for data validation.
-        :param files: extracted or all files from a Farming Simulator Mod .zip.
-        :param root_dir: the root directory of the extracted files.
-        :return: (list) of the restructured directory.
+        Copy each kept file into the farmhand directory layout under the root_dir.
+        Extra-Content files are preserved under an /extra root, with their sub-path
+        maintained.
+
+        :param files: Filtered files are returned by extract_zip.
+        :param root_dir: Root of the extracted mod.
+        :return: List of paths in their new restructured locations.
         """
         start_time = time.monotonic()
-        logger.info("[File Parser]: Starting file restructuring for %d files", len(files))
-
-        self._create_target_directories(self.parser_directory_schema, root_dir)
-        moved_files = []
+        self._create_target_directories(root_dir)
+        moved: list[Path] = []
 
         for file in files:
             relative_path = file.relative_to(root_dir)
-
-            matched_dir = self.__get_matching_directory(file)
-            target = self.__handle_extra_content(relative_path, root_dir)
-
-            if not target:
-                target = root_dir / matched_dir / file.name
-                logger.debug("[File Parser]: Default file moving to '%s': %s", matched_dir, target)
-
+            target = self._extra_content_target(relative_path, root_dir) or (
+                root_dir / self._schema_directory(file) / file.name
+            )
             target.parent.mkdir(parents=True, exist_ok=True)
-            logger.debug("[File Parser]: Moving '%s' -> '%s'", file, target)
 
             if file.resolve() != target.resolve():
                 shutil.copy2(file, target)
-            else:
-                logger.debug(
-                    "[File Parser]: Skipping move for '%s' as source and target are the same", file
-                )
 
-            moved_files.append(target)
+            moved.append(target)
 
-        duration = time.monotonic() - start_time
-        logger.info(
-            "[File Parser]: Restructured %d files in %.2f seconds", len(moved_files), duration
+        logger.debug(
+            "[File Parser]: Restructured %d file(s) in %.2fs.",
+            len(moved),
+            time.monotonic() - start_time,
         )
+        return moved
 
-        return moved_files
+    def remove_unwanted_extras(self, files: list[Path], root_dir: Path) -> list[Path]:
+        """
+        Post-process the 'filtered' files and remove any /extras that has context
+        which are not defined in the extra_context allowlist.
 
-    def apply_filters(self, files: list[Path], root_dir: Path) -> list[Path]:
+        Call this after restructure_files and before uploading to S3 to catch
+        anything that slipped through (e.g. a directory in the zip that matched
+        an old extra_content entry now removed from config).
+
+        :param files: Restructured file paths from restructure_files.
+        :param root_dir: Root directory used to compute relative paths.
+        :return: Cleaned file list with unwanted extras removed.
         """
-        Apply filters to extracted files.
-        :param files: extracted files
-        :param root_dir: root path to compute relative paths
-        """
-        filtered_files = []
+        kept: list = []
+        removed: list = []
         for file in files:
-            if self.__do_filter(file, root_dir):
-                logger.debug("Keeping file: %s", file.name)
-                filtered_files.append(file)
+            parts = file.relative_to(root_dir).parts
+            if (
+                len(parts) >= 2
+                and parts[0] == "extra"
+                and parts[1].lower() not in self._extra_content_lower
+            ):
+                removed.append(file)
             else:
-                logger.debug("Filtering out file: %s", file)
+                kept.append(file)
 
-        return filtered_files
-
-    def __get_matching_directory(self, file: Path) -> str:
-        """
-        Determine the matched directory based on the parser schema.
-        :param file: Path object of the file.
-        :return: Directory name where the file should be moved.
-        """
-        file_extension = file.suffix.lower()
-        for directory, extensions in self.parser_directory_schema.items():
-            if file_extension in extensions:
-                return directory
-        return "unused"
-
-    def __handle_extra_content(self, relative_path: Path, root_dir: Path) -> Path | None:
-        """
-        Determines if a file belongs to extra content and returns then returns the 'extras' target
-        path.
-        :param relative_path: path relative to root_dir.
-        :param root_dir: root of the extracted mod files.
-        :return: target path under 'extra' folder if matched, else None.
-        """
-        relative_parts = [part.lower() for part in relative_path.parts]
-        extra_content = [item.lower() for item in self.extra_content]
-
-        extras_folder = next((folder for folder in extra_content if folder in relative_parts), None)
-
-        if extras_folder:
-            folder_index = relative_parts.index(extras_folder)
-            original_folder_name = relative_path.parts[folder_index]
-            trimmed_path = Path(*relative_path.parts[folder_index:])
-            target = root_dir / "extra" / trimmed_path
-
+        if removed:
             logger.debug(
-                "[File Parser]: Found '%s' extra content preserving file path: %s",
-                original_folder_name,
-                trimmed_path,
+                "[File Parser]: Post-processing removed %d file(s) from unwanted extra directories.",
+                len(removed),
             )
-            return target
 
+        return kept
+
+    def filter_extra_content(self, files: list[Path], root_dir: Path) -> list[Path]:
+        """
+        Post-process the /extra directories file and keep only the primary XML file
+        for each item and attempt to discard textures, sounds, meshes, and other assets.
+
+        Example:
+            extra/vehicles/claasAxion800/axion800.xml is attempted to be kept, Anything deeper
+            (sounds/, subfolders) or anything without a non-XML extension is dropped.
+
+        :param files: Restructured file list from restructure_files.
+        :param root_dir: Root directory used to compute relative paths.
+        :return: Cleaned file list.
+        """
+        kept, removed = [], []
+
+        for file in files:
+            relative = file.relative_to(root_dir)
+            parts = relative.parts
+
+            if parts[0] != "extra":
+                kept.append(file)
+                continue
+
+            # Drop anything that isn't XML regardless of depth.
+            if file.suffix.lower() != ".xml":
+                removed.append(file)
+                continue
+
+            # Drop XMLs that live inside a known asset subfolder at any depth.
+            # extra/vehicles/claas/Axion800/sounds/axion800.xml → "sounds" in parts → drop
+            # extra/vehicles/claas/Axion800/axion800.xml → no asset dir in parts → keep
+            if any(part.lower() in self.EXTRA_ASSET_DIRS for part in parts):
+                removed.append(file)
+            else:
+                kept.append(file)
+
+        if removed:
+            logger.debug(
+                "[File Parser]: Extra content filtered %d asset(s), kept %d XML(s).",
+                len(removed),
+                len(kept),
+            )
+
+        return kept
+
+    def _should_keep(self, relative_path: Path) -> bool:
+        """
+        Allowlist check: keep the file if it matches an always_include pattern,
+        is a map i3d by location, or lives under a known extra_content directory.
+        """
+        if relative_path.name in self._excluded_files:
+            return False
+        if any(relative_path.match(p) for p in self._include_patterns):
+            return True
+        if self._is_map_i3d(relative_path):
+            return True
+        parts_lower = [p.lower() for p in relative_path.parts]
+        return any(ec in parts_lower for ec in self._extra_content_lower)
+
+    def _schema_directory(self, file: Path) -> str:
+        """Return the schema target directory for this file's extension."""
+        ext = file.suffix.lower()
+        for directory, extensions in self.parser_directory_schema.items():
+            if ext in extensions:
+                return directory
+        return self.FALLBACK_DIRECTORY
+
+    def _extra_content_target(self, relative_path: Path, root_dir: Path) -> Path | None:
+        """
+        If the file is under a known extra_content directory, return a target
+        path under extra/ that preserves its sub-path. Otherwise, None.
+        """
+        parts_lower = [p.lower() for p in relative_path.parts]
+        matched = next((ec for ec in self._extra_content_lower if ec in parts_lower), None)
+        if matched:
+            idx = parts_lower.index(matched)
+            return root_dir / "extra" / Path(*relative_path.parts[idx:])
         return None
 
+    def _create_target_directories(self, root_dir: Path) -> None:
+        """
+        Create the target directories within the TemporaryDirectory based on
+        the provided parser_directory_schema.
+        :param root_dir: The root of the TemporaryDirectory.
+        """
+        for directory in self.parser_directory_schema:
+            (root_dir / directory).mkdir(parents=True, exist_ok=True)
+
     @staticmethod
-    def _create_target_directories(target_directory_schema: dict, root_dir: Path) -> None:
+    def _is_map_i3d(relative_path: Path) -> bool:
         """
-        Create target directories based on the directory schema.
-        :param root_dir: (path) the root directory of the 'Mod' for these files to be
-        created at.
+        Detect map .i3d files that use the mod name instead of map.i3d, mapEU.i3d, etc.
+        Example:
+            maps/mechet.i3d
+            maps/Hermannshausenmap.i3d
+        :param relative_path: (Path) the path of the item to check.
+        :return: (bool) if the map uses the mod name instead of map.i3d.
         """
-        logger.info(f"Creating new directory structure for: {root_dir.name}")
-        for directory in target_directory_schema:
-            path = root_dir / directory
-            path.mkdir(parents=True, exist_ok=True)
-
-    def __do_filter(self, file: Path, root_dir: Path) -> bool:
-        """
-        Private method to filter a file, checking all filters specified in the
-        yaml configuration.
-        :param file: (Path) the file to check.
-        :param root_dir: (path) the root directory to apply filters form.
-        :return: (bool) if the file should be filtered or not.
-        """
-        relative_path = file.relative_to(root_dir)
-        return self.__always_include_filter(relative_path) or not (
-            self.__exclude_glob_filter(relative_path)
-            or self.__exclude_file_type_filter(file)
-            or self.__exclude_file_filter(file)
-            or self.__exclude_directory_filter(file)
+        return (
+                relative_path.suffix.lower() == ".i3d"
+                and relative_path.parent.name.lower() == "maps"
         )
-
-    def __always_include_filter(self, file_path: Path) -> bool:
-        """
-        Private method for the always include filter, to always include in the final
-        output.
-        :param file_path: the file_path to check.
-        :return: (bool) if the file should be filtered or not.
-        """
-        return any(file_path.match(pattern) for pattern in self.filters.always_include.flatten())
-
-    def __exclude_glob_filter(self, file_path: Path) -> bool:
-        """
-        Private method for the 'glob' filter to filter out certain directory files
-        .e.g. "textures/*.dds".
-        :param file_path: the file_path to check.
-        :return: (bool) if the file should be filtered or not.
-        """
-        return any(file_path.match(pattern) for pattern in self.filters.excluded_globs)
-
-    def __exclude_file_type_filter(self, file: Path) -> bool:
-        """
-        Private method for the file type filter to filter files based on
-        file type.
-        :param file: the file_path to check.
-        :return: (bool) if the file should be filtered or not.
-        """
-        return file.suffix in self.filters.excluded_file_types
-
-    def __exclude_file_filter(self, file: Path) -> bool:
-        """
-        Private method to exclude files based on their name or path.
-        :param file: the file_path to check.
-        :return: (bool) if the file should be filtered or not.
-        """
-        return file.name in self.filters.excluded_files
-
-    def __exclude_directory_filter(self, file: Path) -> bool:
-        """
-        Private method for the directory filter to filter out unused or unneeded directories.
-        :param file: the file_path to check.
-        :return: (bool) if the file should be filtered or not.
-        """
-        return any(ex_dir in file.parts for ex_dir in self.filters.excluded_directories)
