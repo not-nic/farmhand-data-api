@@ -30,7 +30,7 @@ base_scheduler.add_job(
     JobModel(
         func=download_pending_maps,
         trigger=IntervalTrigger(
-            minutes=20,
+            minutes=15,
             start_date=datetime.now(UTC) + timedelta(minutes=20)
         ),
         id="download_pending_maps",

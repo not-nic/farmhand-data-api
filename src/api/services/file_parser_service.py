@@ -87,7 +87,7 @@ class FileParserService:
         all_files = [f for f in root_dir.rglob("*") if f.is_file()]
         kept = [f for f in all_files if self._should_keep(f.relative_to(root_dir))]
 
-        logger.info(
+        logger.debug(
             "[File Parser]: %d -> %d files kept after allowlist filter.",
             len(all_files),
             len(kept),
@@ -121,7 +121,7 @@ class FileParserService:
 
             moved.append(target)
 
-        logger.info(
+        logger.debug(
             "[File Parser]: Restructured %d file(s) in %.2fs.",
             len(moved),
             time.monotonic() - start_time,
@@ -155,7 +155,7 @@ class FileParserService:
                 kept.append(file)
 
         if removed:
-            logger.info(
+            logger.debug(
                 "[File Parser]: Post-processing removed %d file(s) from unwanted extra directories.",
                 len(removed),
             )
@@ -199,7 +199,7 @@ class FileParserService:
                 kept.append(file)
 
         if removed:
-            logger.info(
+            logger.debug(
                 "[File Parser]: Extra content filtered %d asset(s), kept %d XML(s).",
                 len(removed),
                 len(kept),
