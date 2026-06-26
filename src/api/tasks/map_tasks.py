@@ -40,3 +40,13 @@ def extract_files_from_maps() -> None:
     with db_session() as db:
         logger.info("[MAP TASKS]: Checking for DOWNLOADED maps to extract.")
         MapIngestionService(db=db).extract_files_from_maps()
+
+
+async def retry_stalled_downloads() -> None:
+    """
+    Background task to reset maps that have been stuck in a DOWNLOADING
+    state.
+    """
+    with db_session() as db:
+        logger.info("[MAP TASKS]: Checking for stalled downloads to retry.")
+        await MapIngestionService(db=db).reprocess_stalled_downloads()
