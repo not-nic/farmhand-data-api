@@ -21,10 +21,7 @@ base_scheduler = Scheduler()
 base_scheduler.add_job(
     JobModel(
         func=get_new_maps,
-        trigger=OrTrigger([
-            CronTrigger(day_of_week="mon-fri", hour=14, minute=0),
-            DateTrigger(run_date=datetime.now(UTC) + timedelta(minutes=10)),
-        ]),
+        trigger=CronTrigger(day_of_week="mon-fri", hour=14, minute=0),
         id="get_new_maps",
         name="Check and download new Farming Simulator Maps",
     )
@@ -35,8 +32,8 @@ base_scheduler.add_job(
     JobModel(
         func=download_pending_maps,
         trigger=IntervalTrigger(
-            minutes=15,
-            start_date=datetime.now(UTC) + timedelta(minutes=20)
+            minutes=10,
+            start_date=datetime.now(UTC) + timedelta(minutes=5)
         ),
         id="download_pending_maps",
         name="Download PENDING maps to S3",

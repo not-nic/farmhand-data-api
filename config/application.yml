@@ -30,6 +30,9 @@ farmhand:
       - "handTools.xml"
       - "motionPathEffects.xml"
       - "pedestrianSystem.xml"
+      - "colorGradingNight.xml"
+      - "colorGrading.xml"
+      - "collectibles.xml"
 
   extra_content:
     # Vehicles & Equipment

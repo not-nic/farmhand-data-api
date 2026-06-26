@@ -29,6 +29,9 @@ class BaseSettingsConfig(BaseSettings):
     BASE_MOD_URL: str = f"{BASE_FS_URL}/mod.php"
 
     MAX_MAP_DOWNLOADS: int = 10
+    STREAM_MULTIPART_CHUNK_SIZE_MB: int = 32
+    STREAM_MAX_CONCURRENCY: int = 2
+    DOWNLOAD_CHUNK_SIZE_MB: int = 8
 
 
 class Settings(BaseSettingsConfig):

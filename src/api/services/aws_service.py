@@ -133,12 +133,14 @@ class AwsService:
         :return: A S3 URI of the location.
         """
         object_key = f"{mod_id}/{file_name}"
+        buffer_size = settings.STREAM_MULTIPART_CHUNK_SIZE_MB * 1024 * 1024
+
         try:
             self.s3.upload_fileobj(
-                io.BufferedReader(IteratorAsFileObj(stream)),
+                io.BufferedReader(IteratorAsFileObj(stream), buffer_size=buffer_size),
                 self.bucket,
                 object_key,
-                Config=TRANSFER_CONFIG,
+                Config=self._stream_transfer_config(),
             )
             return f"s3://{self.bucket}/{object_key}"
         except ClientError as exc:
@@ -197,6 +199,19 @@ class AwsService:
             logger.warning("Failed to list prefix '%s' from %s: %s", prefix, self.bucket, exc)
             raise
 
+    def get_object_size(self, key: str) -> int:
+        """
+        Return the size in bytes of an object in the bucket.
+        :param key: The S3 object key.
+        :return: Size in bytes.
+        """
+        try:
+            response = self.s3.head_object(Bucket=self.bucket, Key=key)
+            return response["ContentLength"]
+        except ClientError as exc:
+            logger.warning("Failed to get size for '%s': %s", key, exc)
+            raise
+
     def delete_prefix(self, prefix: str) -> int:
         """
         Delete all objects under an S3 prefix.
@@ -226,3 +241,16 @@ class AwsService:
         except ClientError as exc:
             logger.warning("Failed to delete prefix '%s' from %s: %s", prefix, self.bucket, exc)
             raise
+
+    @staticmethod
+    def _stream_transfer_config() -> TransferConfig:
+        """
+        Create a Stream TransferConfig for concurrent downloads.
+        """
+        chunk_size = settings.STREAM_MULTIPART_CHUNK_SIZE_MB * 1024 * 1024
+        return TransferConfig(
+            multipart_threshold=chunk_size,
+            multipart_chunksize=chunk_size,
+            max_concurrency=settings.STREAM_MAX_CONCURRENCY,
+            use_threads=True,
+        )

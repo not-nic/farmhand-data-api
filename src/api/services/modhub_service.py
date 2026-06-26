@@ -55,9 +55,10 @@ class ModHubService:
         headers = {
             "Referer": settings.BASE_FS_URL,
         }
+        chunk_size = settings.DOWNLOAD_CHUNK_SIZE_MB * 1024 * 1024
         with stream("GET", file_url, headers=headers) as response:
             response.raise_for_status()
-            yield response
+            yield response.iter_raw(chunk_size=chunk_size)
 
     async def get_download_url(
         self, mod_id: int | None = None, page_contents: BeautifulSoup | None = None
@@ -106,7 +107,7 @@ class ModHubService:
             mod_details["file_url"] = file_url
             mod_details["zip_filename"] = get_filename_from_url(file_url)
 
-            logger.info(f"Found mod details for '{mod_name}' ({mod_id})")
+            logger.debug(f"Found mod details for '{mod_name}' ({mod_id})")
 
             mod_detail = ModDetailModel(**mod_details)
             return mod_detail
@@ -271,10 +272,10 @@ class ModHubService:
             try:
                 mod_id = int(href.split("mod_id=")[1].split("&")[0])
             except ValueError, IndexError:
-                logger.info(f"Failed to extract mod_id from href: {href}")
+                logger.warning(f"Failed to extract mod_id from href: {href}")
 
         if mod_id is None:
-            logger.info("Mod ID could not be found; skipping mod.")
+            logger.warning("Mod ID could not be found; skipping mod.")
             return None
 
         return ModPreviewModel(id=mod_id, name=mod_title, label=mod_label)
@@ -289,7 +290,7 @@ class ModHubService:
         # Find the pagination content
         pagination = page_contents.find("ul", class_="pagination")
         if not pagination:
-            logger.info(
+            logger.warning(
                 "No pagination object found within the DOM - returning empty page number list."
             )
             return []

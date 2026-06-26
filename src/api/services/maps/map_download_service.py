@@ -35,16 +35,19 @@ class MapDownloadService:
         try:
             download_url = await self.mod_hub_service.get_download_url(mod_id=map_id)
             start_time = time.monotonic()
-            with self.mod_hub_service.download_mod_stream(download_url) as response:
-                file_size = response.headers.get("content-length", "unknown")
-                s3_uri = self.aws_service.upload_stream(response.iter_bytes(), map_id, filename)
+            with self.mod_hub_service.download_mod_stream(download_url) as chunks:
+                s3_uri = self.aws_service.upload_stream(chunks, map_id, filename)
 
             elapsed_time = time.monotonic() - start_time
+
+            object_key = f"{map_id}/{filename}"
+            file_size_mb = self.aws_service.get_object_size(object_key) / (1024 * 1024)
+
             logger.info(
-                "Downloaded '%s' in %.2f seconds. File size: %s",
+                "Downloaded '%s' in %.2f seconds. File size: %.2f MB.",
                 filename,
                 elapsed_time,
-                format_file_size(int(file_size)) if file_size != "unknown" else "unknown",
+                round(file_size_mb, 2),
             )
             return s3_uri
         except ClientError:
