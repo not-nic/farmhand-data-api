@@ -16,32 +16,41 @@ from src.api.core.logger import logger
 @dataclass
 class JobModel:
     """
-    Dataclass for the job model to instantiate new background tasks.
+    Dataclass for a scheduled background job.
+
+    Attributes:
+        func: The function to call when the job fires.
+        trigger: APScheduler trigger defining when the job runs.
+        id: Unique job identifier.
+        name: Human-readable job name to be shown in logs.
+        group: A group for the job.
+        enabled: Set too False to skip registration without removing the job definition.
+        args: Positional arguments passed to func.
+        kwargs: Keyword arguments passed to func.
+        replace_existing: Replace an existing job with the same id on scheduler start.
     """
 
     func: Callable[..., Any]
     trigger: BaseTrigger
     id: str
     name: str | None = None
+    group: str = "general"
+    enabled: bool = True
     args: list | None = None
     kwargs: dict | None = None
     replace_existing: bool = True
-    run_immediately: bool = False
 
 
 class Scheduler:
     """
-    Singleton Scheduler class for scheduling all jobs defined in the modules __init__.py
-    on the FastAPI application startup.
+    Singleton Scheduler class for scheduling all jobs defined in the
+    tasks __init__.py on FastAPI application startup.
     """
 
     _instance = None
     _lock = threading.Lock()
 
     def __new__(cls):
-        """
-        Create this class as a singleton.
-        """
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
@@ -49,19 +58,23 @@ class Scheduler:
                     cls._instance.jobs = []
         return cls._instance
 
-    def add_job(self, job: JobModel):
+    def add_job(self, job: JobModel) -> None:
         """
-        Method to add a new job to the scheduler.
-        :param job: The job model to schedule.
+        Add a job to the scheduler registry.
+        :param job: The JobModel to register.
         """
         self.jobs.append(job)
 
-    def schedule_jobs(self, scheduler: BaseScheduler):
+    def schedule_jobs(self, scheduler: BaseScheduler) -> None:
         """
-        Schedule each job stored in the array into the APScheduler instance.
+        Register all enabled jobs with the APScheduler instance and log
+        a grouped summary of what was scheduled and what was skipped.
         :param scheduler: The APScheduler instance.
         """
-        for job in self.jobs:
+        enabled = [job for job in self.jobs if job.enabled]
+        disabled = [job for job in self.jobs if not job.enabled]
+
+        for job in enabled:
             scheduler.add_job(
                 func=job.func,
                 trigger=job.trigger,
@@ -72,7 +85,17 @@ class Scheduler:
                 replace_existing=job.replace_existing,
             )
 
-        logger.info("Jobs Scheduled: %s", [job.id for job in self.jobs])
+        groups = sorted({job.group for job in enabled})
+        for group in groups:
+            group_jobs = [j.id for j in enabled if j.group == group]
+            logger.info("[%s] Scheduled: %s", group.upper(), group_jobs)
+
+        if disabled:
+            logger.info(
+                "Skipped %d disabled job(s): %s",
+                len(disabled),
+                [job.id for job in disabled],
+            )
 
         for scheduled_job in scheduler.get_jobs():
             logger.info(
