@@ -216,10 +216,6 @@ class MapScrapingService:
         :param mod_preview: The mod preview from the ModHub listing.
         :return: NewMapCandidate if valid, None if the category is invalid.
         """
-        logger.info(
-            "Map not labeled as new or update, but missing from maps table: %s",
-            mod_preview.name,
-        )
         mod_detail = await self.mod_hub_service.scrape_mod(mod_preview.id)
 
         if mod_detail.category in self.INVALID_CATEGORIES:

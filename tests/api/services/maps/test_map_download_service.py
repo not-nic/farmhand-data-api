@@ -35,6 +35,11 @@ class TestMapDownloadService:
             "upload_stream",
             return_value=expected_uri,
         )
+        mocker.patch.object(
+            map_download_service.aws_service,
+            "get_object_size",
+            return_value=512 * 1024 * 1024
+        )
 
         uri = await map_download_service.download_map(mod_detail.id, mod_detail.zip_filename)
 

@@ -3,7 +3,6 @@ A Python module containing the Map Ingestion Service, the overall
 service to manage, getting new maps, ingesting them, and storing map
 data.
 """
-import asyncio
 import time
 from zipfile import BadZipFile
 
@@ -91,7 +90,7 @@ class MapIngestionService:
         Called by the AP Scheduler on a set interval to keep up with mods.
         """
         if not settings.ENABLE_MAP_DOWNLOADS:
-            logger.info("Map downloads disabled — skipping advance_pending_maps.")
+            logger.info("Map downloads disabled — skipping download_pending_maps.")
             return
 
         pending_maps = self.map_service.get_maps_by_status(IngestionStatus.PENDING)[:settings.MAX_MAP_DOWNLOADS]
@@ -107,8 +106,7 @@ class MapIngestionService:
                 ingestion_status=IngestionStatus.DOWNLOADING,
                 ingestion_error=None,
             )
-
-        await asyncio.gather(*[self._download_map(map_obj) for map_obj in pending_maps])
+            await self._download_map(map_obj)
 
         logger.info("All %d map(s) downloaded.", len(pending_maps))
 
