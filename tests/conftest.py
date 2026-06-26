@@ -2,7 +2,7 @@
 Pytest conftest.py module containing test setup, TestClient Fixtures and other mocks.
 """
 
-from collections.abc import Generator
+from collections.abc import Generator, Callable
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
@@ -66,7 +66,7 @@ def mock_s3() -> Generator[tuple[S3Client, str], Any]:
 
 
 @pytest.fixture
-def mock_mod_hub_page(mocker) -> callable:
+def mock_mod_hub_page(mocker) -> Callable:
     """
     Create a fixture for a ModHub page, define which HTML resource should be
     returned and what status code.
