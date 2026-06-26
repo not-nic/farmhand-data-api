@@ -3,7 +3,9 @@ Python module containing scheduler jobs definitions.
 """
 from datetime import UTC, datetime, timedelta
 
+from apscheduler.triggers.combining import OrTrigger
 from apscheduler.triggers.cron import CronTrigger
+from apscheduler.triggers.date import DateTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 from src.api.tasks.map_tasks import (
@@ -19,7 +21,10 @@ base_scheduler = Scheduler()
 base_scheduler.add_job(
     JobModel(
         func=get_new_maps,
-        trigger=CronTrigger(hour=14, minute=0),
+        trigger=OrTrigger([
+            CronTrigger(day_of_week="mon-fri", hour=14, minute=0),
+            DateTrigger(run_date=datetime.now(UTC) + timedelta(minutes=10)),
+        ]),
         id="get_new_maps",
         name="Check and download new Farming Simulator Maps",
     )
