@@ -12,7 +12,7 @@ from httpx2 import HTTPError
 from sqlalchemy.orm import Session
 
 from src.api.constants import IngestionStatus
-from src.api.core.config import settings, Settings
+from src.api.core.config import settings
 from src.api.core.db.models import Map
 from src.api.core.exceptions import MapProcessingError
 from src.api.core.logger import logger
@@ -94,7 +94,7 @@ class MapIngestionService:
             logger.info("Map downloads disabled — skipping advance_pending_maps.")
             return
 
-        pending_maps = self.map_service.get_maps_by_status(IngestionStatus.PENDING)[:Settings.MAX_MAP_DOWNLOADS]
+        pending_maps = self.map_service.get_maps_by_status(IngestionStatus.PENDING)[:settings.MAX_MAP_DOWNLOADS]
 
         if not pending_maps:
             return

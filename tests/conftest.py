@@ -2,7 +2,7 @@
 Pytest conftest.py module containing test setup, TestClient Fixtures and other mocks.
 """
 
-from collections.abc import Generator, Callable
+from collections.abc import Callable, Generator
 from pathlib import Path
 from tempfile import TemporaryDirectory
 from typing import Any
@@ -125,10 +125,19 @@ def mock_mod_hub_service(mocker, mod_detail) -> ModHubService:
     mock_service.get_pages.return_value = [0]
     mock_service.scrape_mod.return_value = mod_detail
     mock_service.scrape_mods.return_value = []
-    mock_service.download_mod.return_value = b"zip-file-contents"
-    mock_service.get_download_url.return_value = (
-        f"{settings.BASE_FS_URL}/download/{mod_detail.zip_filename}"
+    # remove: mock_service.download_mod.return_value = b"zip-file-contents"
+    mock_service.get_download_url = mocker.AsyncMock(
+        return_value=f"{settings.BASE_FS_URL}/download/{mod_detail.zip_filename}"
     )
+
+    mock_response = mocker.MagicMock()
+    mock_response.headers = {"content-length": "12"}
+    mock_response.__iter__.return_value = iter([b"zip-", b"file-", b"contents"])
+
+    mock_stream = mocker.MagicMock()
+    mock_stream.__enter__.return_value = mock_response
+    mock_stream.__exit__.return_value = False
+    mock_service.download_mod_stream.return_value = mock_stream
 
     mocker.patch("src.api.services.modhub_service.ModHubService", new=mock_service)
 
@@ -165,6 +174,8 @@ def mock_file_parser_service(mocker) -> Generator[FileParserService, Any]:
     mock_file_parser_service = mocker.Mock()
     mock_file_parser_service.extract_zip.return_value = mock_extracted
     mock_file_parser_service.restructure_files.return_value = restructured_files
+    mock_file_parser_service.remove_unwanted_extras.return_value = restructured_files
+    mock_file_parser_service.filter_extra_content.return_value = restructured_files
 
     yield mock_file_parser_service
 
