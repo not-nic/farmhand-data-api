@@ -43,8 +43,8 @@ base_scheduler.add_job(
     JobModel(
         func=extract_files_from_maps,
         trigger=IntervalTrigger(
-            minutes=10,
-            start_date=datetime.now(UTC) + timedelta(minutes=10)
+            minutes=1,
+            start_date=datetime.now(UTC) + timedelta(minutes=1)
         ),
         id="extract_files_from_maps",
         name="Extract files from DOWNLOADED maps",

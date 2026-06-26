@@ -1,6 +1,6 @@
 """
 A Python module containing a map extraction service to manage the file extraction
-from a zip archive that can be parsed within the xml parsing service.
+from a zip archive that can be parsed within the XML parsing service.
 """
 
 import time
@@ -45,15 +45,15 @@ class MapExtractionService:
         data_uri on success.
 
         :param map_obj: The map whose archive should be extracted.
-        :raises MapProcessingError: if the zip cannot be extracted or restructured.
-        :raises ClientError: if S3 download or upload fails.
+        :raises MapProcessingError: If the zip cannot be extracted or restructured.
+        :raises ClientError: If S3 download or upload fails.
         """
         start_time = time.monotonic()
         object_key = f"{map_obj.id}/{map_obj.zip_filename}"
         output_directory = object_key.rsplit(".", 1)[0]
 
         with NamedTemporaryFile(suffix=".zip") as temp_zip:
-            logger.info("[Extraction]: '%s' (%d) — downloading archive.", map_obj.name, map_obj.id)
+            logger.debug("[Map-Extraction]: '%s' (%d) — downloading archive.", map_obj.name, map_obj.id)
             self.aws_service.download_object(key=object_key, download_location=temp_zip.name)
 
             try:
@@ -67,7 +67,7 @@ class MapExtractionService:
                 total_mb = sum(f.stat().st_size for f in final_files) / (1024 * 1024)
             except (FileNotFoundError, BadZipFile, PermissionError) as exc:
                 logger.error(
-                    "[Extraction]: Failed to extract '%s' (%d): %s",
+                    "[Map-Extraction]: Failed to extract '%s' (%d): %s",
                     map_obj.name, map_obj.id, exc,
                 )
                 raise MapProcessingError(
@@ -76,7 +76,7 @@ class MapExtractionService:
 
             try:
                 logger.info(
-                    "[Extraction]: Uploading %d file(s) for '%s' (%d).",
+                    "[Map-Extraction]: Uploading %d file(s) for '%s' (%d).",
                     len(final_files),
                     map_obj.name,
                     map_obj.id,
@@ -89,7 +89,7 @@ class MapExtractionService:
                 extracted.temp_dir.cleanup()
 
         logger.info(
-            "[Extraction]: '%s' (%d) done — %d file(s), %.2f MB in %.2fs.",
+            "[Map-Extraction]: '%s' (%d) done — %d file(s), %.2f MB in %.2fs.",
             map_obj.name,
             map_obj.id,
             len(final_files),
@@ -105,7 +105,7 @@ class MapExtractionService:
         maps = self.map_service.get_maps_with_data_uri()
 
         logger.info(
-            "[Extraction Cleanup]: Found %d map(s) with extracted files.",
+            "[Extraction-Cleanup]: Found %d map(s) with extracted files.",
             len(maps),
         )
 
@@ -117,7 +117,7 @@ class MapExtractionService:
                 deleted_count = self.aws_service.delete_prefix(prefix)
 
                 logger.info(
-                    "[Extraction Cleanup]: Deleted %d file(s) for '%s' (%d)",
+                    "[Extraction-Cleanup]: Deleted %d file(s) for '%s' (%d)",
                     deleted_count,
                     map_obj.name,
                     map_obj.id,
@@ -131,7 +131,7 @@ class MapExtractionService:
 
             except Exception:
                 logger.exception(
-                    "[Extraction Cleanup]: Failed for '%s' (%d)",
+                    "[Extraction-Cleanup]: Failed for '%s' (%d)",
                     map_obj.name,
                     map_obj.id,
                 )
@@ -145,7 +145,7 @@ class MapExtractionService:
         maps = self.map_service.get_maps_with_data_uri()
 
         logger.info(
-            "[Extraction Cleanup]: Found %d map(s) with zip archives to delete.",
+            "[Extraction-Cleanup]: Found %d map(s) with zip archives to delete.",
             len(maps),
         )
 
@@ -161,7 +161,7 @@ class MapExtractionService:
                 )
             except Exception:
                 logger.exception(
-                    "[Extraction Cleanup]: Failed to delete archive for '%s' (%d).",
+                    "[Extraction-Cleanup]: Failed to delete archive for '%s' (%d).",
                     map_obj.name,
                     map_obj.id,
                 )

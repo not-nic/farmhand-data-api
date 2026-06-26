@@ -172,14 +172,9 @@ class MapIngestionService:
                 ingestion_status=IngestionStatus.EXTRACTED,
                 ingestion_error=None,
             )
-            logger.info(
-                "Map '%s' (%d) extracted successfully.", map_obj.name, map_obj.id
-            )
-
             # Delete archive after files successfully extracted.
             archive_key = f"{map_obj.id}/{map_obj.zip_filename}"
             self.aws_service.delete_object(key=archive_key)
-            logger.info("Deleted source archive '%s'.", archive_key)
 
         except (MapProcessingError, BadZipFile, ClientError) as exc:
             logger.error(
