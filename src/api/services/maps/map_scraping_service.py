@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 
 from sqlalchemy.orm import Session
 
-from src.api.constants import ModHubLabels, ModHubMapFilters, IngestionStatus
+from src.api.constants import IngestionStatus, ModHubLabels, ModHubMapFilters
 from src.api.core.db.models import Map
 from src.api.core.logger import logger
 from src.api.core.schema.maps import MapModel

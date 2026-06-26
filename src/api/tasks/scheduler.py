@@ -5,7 +5,6 @@ Module containing a singleton utility for scheduling jobs with APScheduler.
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
 from typing import Any
 
 from apscheduler.schedulers.base import BaseScheduler

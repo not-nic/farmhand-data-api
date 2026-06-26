@@ -4,7 +4,7 @@ Python module containing unit tests for the Map Scraping Service
 
 import pytest
 
-from src.api.constants import FarmhandMapFilters, ModHubMapFilters, ModHubLabels
+from src.api.constants import FarmhandMapFilters, ModHubLabels, ModHubMapFilters
 from src.api.core.db.models import Map
 from src.api.core.repositories import MapRepository
 from src.api.core.schema.maps import MapModel

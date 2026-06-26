@@ -1,18 +1,17 @@
 """
 Python module containing scheduler jobs definitions.
 """
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime, timedelta
 
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
-from src.api.tasks.map_tasks import get_new_maps
-from src.api.tasks.scheduler import JobModel, Scheduler
-
 from src.api.tasks.map_tasks import (
     download_pending_maps,
+    extract_files_from_maps,
     get_new_maps,
 )
+from src.api.tasks.scheduler import JobModel, Scheduler
 
 base_scheduler = Scheduler()
 
@@ -31,10 +30,24 @@ base_scheduler.add_job(
     JobModel(
         func=download_pending_maps,
         trigger=IntervalTrigger(
-            minutes=10,
-            start_date=datetime.now(timezone.utc) + timedelta(minutes=5)
+            minutes=20,
+            start_date=datetime.now(UTC) + timedelta(minutes=20)
         ),
         id="download_pending_maps",
         name="Download PENDING maps to S3",
     )
 )
+
+# Schedule job to extract and restructure files from DOWNLOADED map archives.
+base_scheduler.add_job(
+    JobModel(
+        func=extract_files_from_maps,
+        trigger=IntervalTrigger(
+            minutes=10,
+            start_date=datetime.now(UTC) + timedelta(minutes=10)
+        ),
+        id="extract_files_from_maps",
+        name="Extract files from DOWNLOADED maps",
+    )
+)
+

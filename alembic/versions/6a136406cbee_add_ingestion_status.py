@@ -24,7 +24,7 @@ def upgrade() -> None:
         'maps',
         sa.Column(
             'ingestion_status',
-            sa.Enum('PENDING', 'DOWNLOADING' 'DOWNLOADED', 'EXTRACTED', 'PARSED', 'COMPLETE', 'FAILED',
+            sa.Enum('PENDING', 'DOWNLOADING' 'DOWNLOADED', 'EXTRACTING', 'EXTRACTED', 'PARSING', 'PARSED', 'COMPLETE', 'FAILED',
                     name='ingestionstatus', native_enum=False, length=20),
             nullable=False,
             server_default='PENDING',  # backfills existing rows

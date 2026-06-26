@@ -3,21 +3,23 @@ Python module containing an AWS service to interact with AWS managed services th
 boto3, primarily S3 / MinIO buckets.
 """
 import io
+from collections.abc import Iterator
 from io import BytesIO
 from os import PathLike
 from pathlib import Path
-from typing import Literal, Iterator
+from typing import Literal
 
 import boto3
 from boto3.s3.transfer import TransferConfig
 from botocore.exceptions import ClientError
+from mypy_boto3_s3 import ListObjectsV2Paginator
 from mypy_boto3_s3.client import S3Client
+from mypy_boto3_s3.type_defs import ObjectIdentifierTypeDef
 
 from src.api.adapters import IteratorAsFileObj
 from src.api.core.config import settings
 from src.api.core.logger import logger
 from src.api.utils import extension_to_content_type
-
 
 TRANSFER_CONFIG = TransferConfig(
     multipart_threshold=64 * 1024 * 1024,
@@ -148,7 +150,7 @@ class AwsService:
     def download_object(self, key, download_location: PathLike | str) -> None:
         """
         Function to download an object from S3 and save it to a temporary file.
-        :param key: The key of the S3 object to download.
+        :param key: The key of the S3 object is to download.
         :param download_location: The temp-file in which the object is saved.
         """
         try:
@@ -167,4 +169,60 @@ class AwsService:
         Delete an object from a bucket.
         :param key: The key of the Object to delete
         """
-        raise NotImplementedError("Not Implemented.")
+        try:
+            self.s3.delete_object(Bucket=self.bucket, Key=key)
+            logger.debug("Deleted '%s' from %s.", key, self.bucket)
+        except ClientError as exc:
+            logger.warning("Failed to delete '%s' from %s: %s", key, self.bucket, exc)
+            raise
+
+    def list_objects(self, prefix: str) -> list[tuple[str, int]]:
+        """
+        List all objects under a prefix and return their keys and sizes in bytes.
+
+        :param prefix: The S3 key prefix to list under (e.g. "359448/").
+        :return: List of (key, size_in_bytes) tuples.
+        """
+        results: list[tuple[str, int]] = []
+
+        try:
+            paginator: ListObjectsV2Paginator = self.s3.get_paginator("list_objects_v2")
+
+            for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
+                for obj in page.get("Contents", []):
+                    results.append((obj["Key"], obj["Size"]))
+
+            return results
+        except ClientError as exc:
+            logger.warning("Failed to list prefix '%s' from %s: %s", prefix, self.bucket, exc)
+            raise
+
+    def delete_prefix(self, prefix: str) -> int:
+        """
+        Delete all objects under an S3 prefix.
+
+        :param prefix: Prefix to delete (e.g. "123/map")
+        :return: Number of deleted objects.
+        """
+        deleted: int = 0
+
+        try:
+            paginator: ListObjectsV2Paginator = self.s3.get_paginator("list_objects_v2")
+
+            for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
+                contents = page.get("Contents", [])
+                if not contents:
+                    continue
+
+                objects: list[ObjectIdentifierTypeDef] = [{"Key": obj["Key"]} for obj in contents]
+                self.s3.delete_objects(
+                    Bucket=self.bucket,
+                    Delete={"Objects": objects},
+                )
+
+                deleted += len(objects)
+            logger.debug("Deleted %d object(s) under prefix '%s' from %s.", deleted, prefix, self.bucket)
+            return deleted
+        except ClientError as exc:
+            logger.warning("Failed to delete prefix '%s' from %s: %s", prefix, self.bucket, exc)
+            raise

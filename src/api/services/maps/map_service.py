@@ -62,3 +62,9 @@ class MapService:
         :return: The updated map object.
         """
         return self.map_repository.update(map_obj, **fields)
+
+    def get_maps_with_data_uri(self) -> list[Map]:
+        """
+        Get all maps that have extracted data uploaded.
+        """
+        return self.map_repository.get_with_data_uri()

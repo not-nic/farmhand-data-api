@@ -3,7 +3,7 @@ Python module for creating adapters used in the farmhand-data-api.
 """
 
 import io
-from typing import Iterator
+from collections.abc import Iterator
 
 
 class IteratorAsFileObj(io.RawIOBase):

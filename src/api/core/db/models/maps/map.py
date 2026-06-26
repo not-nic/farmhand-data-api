@@ -4,7 +4,7 @@ Python module containing the map database model.
 
 from datetime import datetime
 
-from sqlalchemy import DateTime, Integer, String, Enum, Text
+from sqlalchemy import DateTime, Enum, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.api.constants import IngestionStatus

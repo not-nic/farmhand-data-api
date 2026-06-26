@@ -4,8 +4,8 @@ pages.
 """
 
 import time
+from collections.abc import Iterator
 from contextlib import contextmanager
-from typing import Iterator
 
 from bs4 import BeautifulSoup, Tag
 from httpx2 import AsyncClient, HTTPError, HTTPStatusError, Response, stream

@@ -5,6 +5,7 @@ data.
 """
 import asyncio
 import time
+from zipfile import BadZipFile
 
 from botocore.exceptions import ClientError
 from httpx2 import HTTPError
@@ -13,6 +14,7 @@ from sqlalchemy.orm import Session
 from src.api.constants import IngestionStatus
 from src.api.core.config import settings
 from src.api.core.db.models import Map
+from src.api.core.exceptions import MapProcessingError
 from src.api.core.logger import logger
 from src.api.services.aws_service import AwsService
 from src.api.services.maps.map_download_service import MapDownloadService
@@ -132,9 +134,63 @@ class MapIngestionService:
                 ingestion_error=str(exc),
             )
 
-    def advance_downloaded_maps(self) -> None:
-        """Pick up every DOWNLOADED map and extract its files from S3."""
-        pass
+    def extract_files_from_maps(self) -> None:
+        """
+        Get every downloaded map, extract its files from the S3 archive,
+        and re-upload the filtered and restructured contents.
+
+        All maps being 'extracted' are tagged with the status 'EXTRACTING' so
+        that they are not picked up on later runs.
+        """
+        downloaded_maps = self.map_service.get_maps_by_status(IngestionStatus.DOWNLOADED)
+
+        if not downloaded_maps:
+            logger.info("No maps with status: 'DOWNLOADED'.")
+            return
+
+        logger.info("Found %d DOWNLOADED map(s) to extract.", len(downloaded_maps))
+
+        for map_obj in downloaded_maps:
+            self.map_service.update_map(
+                map_obj,
+                ingestion_status=IngestionStatus.EXTRACTING,
+                ingestion_error=None,
+            )
+            self._extract_map(map_obj)
+
+        logger.info("Finished extraction pass for %d map(s).", len(downloaded_maps))
+
+    def _extract_map(self, map_obj: Map) -> None:
+        """
+        Extract and restructure files for a single map and advance its status,
+        or mark it FAILED with the error if anything goes wrong.
+        """
+        logger.info("Extracting files from map '%s' (%d).", map_obj.name, map_obj.id)
+        try:
+            self.extraction_service.extract_map_files(map_obj)
+            self.map_service.update_map(
+                map_obj,
+                ingestion_status=IngestionStatus.EXTRACTED,
+                ingestion_error=None,
+            )
+            logger.info(
+                "Map '%s' (%d) extracted successfully.", map_obj.name, map_obj.id
+            )
+
+            # Delete archive after files successfully extracted.
+            archive_key = f"{map_obj.id}/{map_obj.zip_filename}"
+            self.aws_service.delete_object(key=archive_key)
+            logger.info("Deleted source archive '%s'.", archive_key)
+
+        except (MapProcessingError, BadZipFile, ClientError) as exc:
+            logger.error(
+                "Failed to extract map '%s' (%d): %s", map_obj.name, map_obj.id, exc
+            )
+            self.map_service.update_map(
+                map_obj,
+                ingestion_status=IngestionStatus.FAILED,
+                ingestion_error=str(exc),
+            )
 
     def advance_extracted_maps(self) -> None:
         """Pick up every EXTRACTED map and parse its XML files."""

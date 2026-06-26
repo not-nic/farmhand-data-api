@@ -25,3 +25,13 @@ class MapRepository(Repository[Map]):
         :return: (list) A list of maps with a matching status.
         """
         return self.db.query(Map).filter(Map.ingestion_status == status).all()
+
+    def get_with_data_uri(self) -> list[Map]:
+        """
+        Get all maps that have extracted data uploaded.
+        """
+        return (
+            self.db.query(Map)
+            .filter(Map.data_uri.isnot(None))
+            .all()
+        )

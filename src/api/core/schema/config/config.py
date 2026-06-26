@@ -19,11 +19,8 @@ class AlwaysIncludeModel(BaseModel):
 
 
 class ParserFilterModel(BaseModel):
-    excluded_file_types: list[str]
-    excluded_files: list[str]
-    excluded_directories: list[str]
-    excluded_globs: list[str]
     always_include: AlwaysIncludeModel
+    excluded_files: list[str] = []
 
 
 class FarmhandModel(BaseModel):
