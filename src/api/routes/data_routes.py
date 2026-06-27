@@ -1,10 +1,37 @@
-from fastapi import APIRouter, BackgroundTasks, status
+from typing import Literal
+
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 
 from src.api.core.dependencies import SessionDep
 from src.api.services.maps.map_extraction_service import MapExtractionService
 from src.api.services.maps.map_ingestion_service import MapIngestionService
 
 router = APIRouter(prefix="/data", tags=["Data"])
+
+
+@router.post("/reingest/{mod_id}", status_code=status.HTTP_202_ACCEPTED)
+async def reingest_mod(
+    mod_id: int,
+    db: SessionDep,
+    background_tasks: BackgroundTasks,
+    mod_type: Literal["map"] = Query(default="map", description="The type of mod to reingest."),
+):
+    """
+    Endpoint to manually trigger the re-ingestion (Download, Extraction, etc.)
+    for a given mod.
+    :param mod_id: The ModHub ID of the mod to reingest.
+    :param mod_type: The type of mod to reingest e.g. 'map'.
+    :param db: The database session dependency.
+    :param background_tasks: The Background tasks dependency.
+    """
+    if mod_type == "map":
+        background_tasks.add_task(MapIngestionService(db=db).reingest_map, mod_id)
+        return {"message": f"Started re-ingest for map: '{mod_id}'"}
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"'{mod_type}' is not a valid mod_type."
+        )
 
 
 @router.get("/extract", status_code=status.HTTP_200_OK)

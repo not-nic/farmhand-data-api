@@ -4,8 +4,10 @@ farmhand:
       overview:
         - "textures/ui/*.dds"
         - "preview.dds"
+        - "*_preview.dds"
         - "overview.dds"
         - "overview_*.dds"
+        - "*_overview.dds"
       xml:
         - "config/*.xml"
         - "xml/*.xml" # Some maps (i.e. Pallegney) store XML in /xml

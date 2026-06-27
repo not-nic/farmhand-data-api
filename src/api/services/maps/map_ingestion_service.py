@@ -3,7 +3,6 @@ A Python module containing the Map Ingestion Service, the overall
 service to manage, getting new maps, ingesting them, and storing map
 data.
 """
-import time
 from zipfile import BadZipFile
 
 from botocore.exceptions import ClientError
@@ -128,7 +127,7 @@ class MapIngestionService:
         downloaded_maps = self.map_service.get_maps_by_status(IngestionStatus.DOWNLOADED)
 
         if not downloaded_maps:
-            logger.info("No maps with status: 'DOWNLOADED'.")
+            logger.debug("No maps with status: 'DOWNLOADED'.")
             return
 
         logger.info("Found %d DOWNLOADED map(s) to extract.", len(downloaded_maps))
@@ -141,7 +140,7 @@ class MapIngestionService:
             )
             self._extract_map(map_obj)
 
-        logger.info("Finished extraction pass for %d map(s).", len(downloaded_maps))
+        logger.info("Finished extraction for %d map(s).", len(downloaded_maps))
 
     def advance_extracted_maps(self) -> None:
         """Pick up every EXTRACTED map and parse its XML files."""
@@ -151,21 +150,44 @@ class MapIngestionService:
         """Pick up every PARSED map, transfer assets, and mark it COMPLETE."""
         pass
 
-    async def reprocess_all_maps(self) -> None:
+    async def reingest_map(self, map_id: int) -> None:
         """
-        (temp) Process all maps stored in S3, extract files, and create a 'map' object.
+        Manually trigger the re-ingestion of a map for a given Map ID.
+        :param map_id: The ModHub ID of the map to reingest.
+        :raises ValueError: If no map with the given ID exists in the database.
         """
-        start_time = time.monotonic()
-        maps = self.map_service.get_maps()
-        logger.info("Starting file extraction process for %d maps.", len(maps))
+        map_obj = self.map_service.get_map_by_id(map_id)
 
-        for map_obj in maps:
-            logger.info("Extracting files from map: '%s' (%d)", map_obj.name, map_obj.id)
-            self.extraction_service.extract_map_files(map_obj)
-            self.xml_parser_service.parse_and_update()
+        if map_obj is None:
+            raise ValueError(f"No map found with ID {map_id}.")
 
-        elapsed_time = time.monotonic() - start_time
-        logger.debug("Extracted data from %d maps in %.2f seconds.", len(maps), elapsed_time)
+        logger.info("Starting manual reingest for '%s' (%d).", map_obj.name, map_obj.id)
+
+        self.map_service.update_map(
+            map_obj,
+            ingestion_status=IngestionStatus.DOWNLOADING,
+            ingestion_error=None,
+        )
+        await self._download_map(map_obj)
+
+        map_obj = self.map_service.get_map_by_id(map_id)
+
+        if map_obj.ingestion_status != IngestionStatus.DOWNLOADED:
+            logger.error(
+                "Reingest for '%s' (%d) aborted — download did not complete.",
+                map_obj.name,
+                map_obj.id,
+            )
+            return
+
+        self.map_service.update_map(
+            map_obj,
+            ingestion_status=IngestionStatus.EXTRACTING,
+            ingestion_error=None,
+        )
+        self._extract_map(map_obj)
+
+        logger.info("Reingest complete for '%s' (%d).", map_obj.name, map_obj.id)
 
     async def _download_map(self, map_obj: Map) -> None:
         """
