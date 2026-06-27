@@ -27,7 +27,7 @@ async def download_pending_maps() -> None:
     and store them in S3.
     """
     with db_session() as db:
-        logger.info("[MAP TASKS]: Checking for PENDING maps to download.")
+        logger.debug("[MAP TASKS]: Checking for PENDING maps to download.")
         await MapIngestionService(db=db).download_pending_maps()
 
 
@@ -38,7 +38,7 @@ def extract_files_from_maps() -> None:
     The source archive is deleted from S3 on successful extraction.
     """
     with db_session() as db:
-        logger.info("[MAP TASKS]: Checking for DOWNLOADED maps to extract.")
+        logger.debug("[MAP TASKS]: Checking for DOWNLOADED maps to extract.")
         MapIngestionService(db=db).extract_files_from_maps()
 
 
@@ -48,5 +48,5 @@ async def retry_stalled_downloads() -> None:
     state.
     """
     with db_session() as db:
-        logger.info("[MAP TASKS]: Checking for stalled downloads to retry.")
+        logger.debug("[MAP TASKS]: Checking for stalled downloads to retry.")
         await MapIngestionService(db=db).reprocess_stalled_downloads()
