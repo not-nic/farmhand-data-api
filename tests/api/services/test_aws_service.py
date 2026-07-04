@@ -9,7 +9,7 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from botocore.exceptions import ClientError
 
-from src.api.services.aws_service import AwsService
+from src.api.services.aws.aws_service import AwsService
 
 
 class TestAwsService:

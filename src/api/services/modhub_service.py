@@ -271,7 +271,7 @@ class ModHubService:
         if "mod_id=" in href:
             try:
                 mod_id = int(href.split("mod_id=")[1].split("&")[0])
-            except ValueError, IndexError:
+            except (ValueError, IndexError):
                 logger.warning(f"Failed to extract mod_id from href: {href}")
 
         if mod_id is None:

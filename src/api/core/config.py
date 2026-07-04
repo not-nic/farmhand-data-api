@@ -35,6 +35,9 @@ class BaseSettingsConfig(BaseSettings):
     STREAM_MAX_CONCURRENCY: int = 2
     DOWNLOAD_CHUNK_SIZE_MB: int = 8
 
+    SCHEDULER_THREAD_POOL_SIZE: int = 8
+    DOWNLOAD_EXECUTOR_MAX_WORKERS: int = 4
+
 
 class Settings(BaseSettingsConfig):
     """
@@ -57,7 +60,10 @@ class Settings(BaseSettingsConfig):
     AWS_ACCESS_KEY_ID: str
     AWS_SECRET_ACCESS_KEY: str
     AWS_REGION: str
+
     AWS_S3_BUCKET_NAME: str
+    AWS_S3_ASSETS_BUCKET_NAME: str
+    MINIO_PUBLIC_ENDPOINT_URL: str
 
     MINIO_ENDPOINT_URL: str | None = None
 
@@ -87,9 +93,12 @@ class TestSettings(BaseSettingsConfig):
     AWS_ACCESS_KEY_ID: str = "farmhand-unit-test"
     AWS_SECRET_ACCESS_KEY: str = "farmhand-unit-test"
     AWS_REGION: str = "eu-west-2"
+
     AWS_S3_BUCKET_NAME: str = "farmhand-unit-testing-bucket"
+    AWS_S3_ASSETS_BUCKET_NAME: str = "farmhand-unit-testing-asset-bucket"
 
     MINIO_ENDPOINT_URL: str = ""
+    MINIO_PUBLIC_ENDPOINT_URL: str = ""
 
     APPLICATION_CONFIG: str = os.path.join("config", "application.yml")
 

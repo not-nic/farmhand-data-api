@@ -11,7 +11,7 @@ from fastapi import APIRouter
 from pydantic import BaseModel, computed_field
 
 from src.api.core.dependencies import SessionDep
-from src.api.services.aws_service import AwsService
+from src.api.services.aws.aws_service import AwsService
 from src.api.services.maps.map_service import MapService
 
 router = APIRouter(prefix="/stats", tags=["Stats"])

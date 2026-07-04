@@ -1,13 +1,14 @@
 """
 Python module containing a class for downloading Mods from the ModHub and handling interaction with S3.
 """
+import asyncio
 import time
 
 from botocore.exceptions import ClientError
 from httpx2 import HTTPError
 
 from src.api.core.logger import logger
-from src.api.services.aws_service import AwsService
+from src.api.services.aws.aws_service import AwsService
 from src.api.services.modhub_service import ModHubService
 
 
@@ -24,7 +25,7 @@ class MapDownloadService:
         self.mod_hub_service = mod_hub_service or ModHubService()
         self.aws_service = aws_service or AwsService()
 
-    async def download_map(self, map_id: int, filename: str) -> str:
+    def download_map(self, map_id: int, filename: str) -> str:
         """
         Downloads a map and uploads it to an S3 bucket.
         :param map_id: The ID of the map from the ModHub.
@@ -32,7 +33,7 @@ class MapDownloadService:
         :return: (str) The S3 URI of the uploaded map.
         """
         try:
-            download_url = await self.mod_hub_service.get_download_url(mod_id=map_id)
+            download_url = asyncio.run(self.mod_hub_service.get_download_url(mod_id=map_id))
             start_time = time.monotonic()
             with self.mod_hub_service.download_mod_stream(download_url) as chunks:
                 s3_uri = self.aws_service.upload_stream(chunks, map_id, filename)

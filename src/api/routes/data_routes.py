@@ -5,6 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 from src.api.core.dependencies import SessionDep
 from src.api.services.maps.map_extraction_service import MapExtractionService
 from src.api.services.maps.map_ingestion_service import MapIngestionService
+from src.api.services.maps.map_xml_parser_service import MapXmlParserService
 
 router = APIRouter(prefix="/data", tags=["Data"])
 
@@ -32,6 +33,29 @@ async def reingest_mod(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"'{mod_type}' is not a valid mod_type."
         )
+
+
+@router.post("/parse-mod-desc/{map_id}", status_code=status.HTTP_202_ACCEPTED)
+async def parse_mod_desc_for_map(
+        map_id: int,
+        db: SessionDep,
+        background_tasks: BackgroundTasks,
+):
+    """
+    (temp) Parse modDesc.xml for a single map by its ID.
+    :param map_id: The ModHub ID of the map to parse.
+    """
+    map_service = MapXmlParserService(db=db)
+    map_obj = map_service.map_service.get_map_by_id(map_id)
+
+    if not map_obj:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"No map found with ID {map_id}.",
+        )
+
+    background_tasks.add_task(map_service.parse_map, map_obj)
+    return {"message": f"Started parsing modDesc.xml for map '{map_id}'"}
 
 
 @router.get("/extract", status_code=status.HTTP_200_OK)

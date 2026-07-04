@@ -3,9 +3,14 @@ Python module containing the map database model.
 """
 
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import DateTime, Enum, Integer, String, Text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+
+if TYPE_CHECKING:
+    from src.api.core.db.models.assets import Asset
+    from src.api.core.db.models.mods import Dependency, ModDescription
 
 from src.api.constants import IngestionStatus
 from src.api.core.db.models._model_base import SqlAlchemyBase
@@ -52,4 +57,18 @@ class Map(SqlAlchemyBase):
         default=datetime.now,
         onupdate=datetime.now,
         nullable=False
+    )
+
+    mod_description: Mapped[ModDescription | None] = relationship(
+        "ModDescription", back_populates="map", uselist=False
+    )
+
+    dependencies: Mapped[list[Dependency]] = relationship(
+"Dependency", secondary="map_dependencies"
+    )
+
+    assets: Mapped[list[Asset]] = relationship(
+        "Asset",
+        primaryjoin="and_(foreign(Asset.entity_id) == Map.id, Asset.entity_type == 'map')",
+        viewonly=True,
     )

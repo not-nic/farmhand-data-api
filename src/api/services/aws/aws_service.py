@@ -75,6 +75,20 @@ class AwsService:
 
         return url
 
+    def get_content_from_uri(self, uri: str) -> bytes:
+        """
+        Fetch the raw content of an S3 object directly from its S3 URI.
+        :param uri: The S3 URI e.g. 's3://farmhand-map-ingest/359448/FS25_Am_MLK/config/modDesc.xml'
+        :return: Raw bytes of the object.
+        """
+        key = uri.split("/", 3)[-1]
+        try:
+            response = self.s3.get_object(Bucket=self.bucket, Key=key)
+            return response["Body"].read()
+        except ClientError as exc:
+            logger.warning("Failed to get content for '%s' from %s: %s", uri, self.bucket, exc)
+            raise
+
     def upload_object(self, file_obj: bytes, mod_id: int, file_name: str) -> str:
         """
         Method to upload a file object to a 'farmhand' bucket.
