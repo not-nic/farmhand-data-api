@@ -18,9 +18,10 @@ _REQUIRES_SAVE_PATTERNS = (
     re.compile(r"save(?:game)? recommended", re.I),
 )
 _NO_SAVE_PATTERNS = (
-    re.compile(r"does not require a new savegame", re.I),
-    re.compile(r"no new save(?:game)? required", re.I),
+    re.compile(r"does not require (?:a )?new save(?:game)?", re.I),
+    re.compile(r"no new save(?:game)?(?:\s+is)? required", re.I),
     re.compile(r"not require.*save", re.I),
+    re.compile(r"savegame is not required", re.I),
 )
 
 
