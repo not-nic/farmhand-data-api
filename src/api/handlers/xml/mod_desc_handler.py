@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from src.api.constants import AssetType, EntityType
 from src.api.core.db.models import Map
+from src.api.core.db.models.mods import ChangeLog
 from src.api.core.logger import logger
 from src.api.core.repositories.dependency_repository import DependencyRepository
 from src.api.core.repositories.mod_description_repository import ModDescriptionRepository
@@ -79,8 +80,28 @@ class ModDescHandler(BaseXmlHandler[ModDescModel]):
             items_filename=config.items_filename if config else None,
         )
 
+        self._store_changelogs(map_obj, parsed)
         self._create_assets(map_obj, parsed)
         self._associate_dependencies(map_obj, parsed)
+
+    @staticmethod
+    def _store_changelogs(map_obj: Map, parsed: ModDescModel) -> None:
+        """
+        Replace the map's changelog entries with the freshly parsed set.
+        The description text is always the source of truth, so old
+        entries are cleared before the new ones are added.
+        :param map_obj: The parent map.
+        :param parsed: The parsed ModDescModel.
+        """
+        map_obj.changelogs.clear()
+        for entry in parsed.changelogs:
+            map_obj.changelogs.append(
+                ChangeLog(
+                    version=entry.version,
+                    notes=entry.notes,
+                    requires_new_savegame=entry.requires_new_savegame,
+                )
+            )
 
     def _create_assets(self, map_obj: Map, parsed: ModDescModel) -> None:
         """

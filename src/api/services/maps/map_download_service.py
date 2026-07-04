@@ -1,7 +1,6 @@
 """
 Python module containing a class for downloading Mods from the ModHub and handling interaction with S3.
 """
-import asyncio
 import time
 
 from botocore.exceptions import ClientError
@@ -33,7 +32,7 @@ class MapDownloadService:
         :return: (str) The S3 URI of the uploaded map.
         """
         try:
-            download_url = asyncio.run(self.mod_hub_service.get_download_url(mod_id=map_id))
+            download_url = self.mod_hub_service.get_download_url(mod_id=map_id)
             start_time = time.monotonic()
             with self.mod_hub_service.download_mod_stream(download_url) as chunks:
                 s3_uri = self.aws_service.upload_stream(chunks, map_id, filename)

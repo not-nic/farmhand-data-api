@@ -10,6 +10,7 @@ from xml.etree.ElementTree import Element
 
 from src.api.core.logger import logger
 from src.api.core.schema.mods.mod_desc import MapConfigModel, ModDescModel
+from src.api.parsers.text.changelog_extractor import ChangelogExtractor
 from src.api.parsers.xml.base_parser import BaseXmlParser
 
 
@@ -20,6 +21,9 @@ class ModDescXmlParser(BaseXmlParser[ModDescModel]):
 
     _PREFERRED_LOCALES = ("en",)
 
+    def __init__(self):
+        self._changelog_extractor = ChangelogExtractor()
+
     def parse(self, content: bytes) -> ModDescModel:
         """
         Parse modDesc.xml bytes and return a ModDescModel.
@@ -29,10 +33,13 @@ class ModDescXmlParser(BaseXmlParser[ModDescModel]):
         :raises ParseError: If the content is not valid XML.
         """
         root = self._load(content)
+        raw_description = self._localised_text(root, "description")
+        extracted = self._changelog_extractor.extract(raw_description or "")
 
         model = ModDescModel(
             title=self._localised_text(root, "title"),
-            description=self._localised_text(root, "description"),
+            description=extracted.description or None,
+            changelogs=extracted.changelogs,
             icon_filename=self._text(root, "iconFilename"),
             map_config=self._get_map_config(root),
             dependencies=self._get_dependencies(root),

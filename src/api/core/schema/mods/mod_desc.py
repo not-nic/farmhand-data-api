@@ -6,6 +6,16 @@ Mod.
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
+class ChangeLogModel(BaseModel):
+    """
+    A single versioned changelog entry extracted from a map's description text.
+    """
+
+    version: str
+    notes: list[str] = Field(default_factory=list)
+    requires_new_savegame: bool | None = None
+
+
 class MapConfigModel(BaseModel):
     """
     XML filenames extracted from the <map> element in modDesc.xml.
@@ -53,6 +63,7 @@ class ModDescModel(BaseModel):
 
     title: str | None = None
     description: str | None = None
+    changelogs: list[ChangeLogModel] = Field(default_factory=list)
     icon_filename: str | None = None
     map_config: MapConfigModel | None = None
     dependencies: list[str] = Field(default_factory=list)
@@ -76,6 +87,18 @@ class DependencyResponse(BaseModel):
     Pydantic response model for map dependencies.
     """
     mod_id: str
+    model_config = ConfigDict(from_attributes=True)
+
+
+class ChangeLogResponse(BaseModel):
+    """
+    Pydantic response model for a single map changelog entry.
+    """
+
+    version: str
+    notes: list[str]
+    requires_new_savegame: bool | None = None
+
     model_config = ConfigDict(from_attributes=True)
 
 

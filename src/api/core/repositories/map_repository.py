@@ -28,6 +28,8 @@ class MapRepository(Repository[Map]):
             .options(
                 joinedload(self.model.mod_description),
                 joinedload(self.model.dependencies),
+                joinedload(self.model.assets),
+                joinedload(self.model.changelogs),
             )
             .all()
         )

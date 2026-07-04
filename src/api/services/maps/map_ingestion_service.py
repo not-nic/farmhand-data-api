@@ -3,6 +3,7 @@ A Python module containing the Map Ingestion Service, the overall
 service to manage, getting new maps, ingesting them, and storing map
 data.
 """
+
 from zipfile import BadZipFile
 
 from botocore.exceptions import ClientError
@@ -150,7 +151,7 @@ class MapIngestionService:
         """Pick up every PARSED map, transfer assets, and mark it COMPLETE."""
         pass
 
-    async def reingest_map(self, map_id: int) -> None:
+    def reingest_map(self, map_id: int) -> None:
         """
         Manually trigger the re-ingestion of a map for a given Map ID.
         :param map_id: The ModHub ID of the map to reingest.

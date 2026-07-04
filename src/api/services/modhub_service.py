@@ -8,7 +8,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 
 from bs4 import BeautifulSoup, Tag
-from httpx2 import AsyncClient, HTTPError, HTTPStatusError, Response, stream
+from httpx2 import AsyncClient, Client, HTTPError, HTTPStatusError, Response, stream
 
 from src.api.constants import ModHubLabels
 from src.api.core.config import settings
@@ -60,24 +60,26 @@ class ModHubService:
             response.raise_for_status()
             yield response.iter_raw(chunk_size=chunk_size)
 
-    async def get_download_url(
-        self, mod_id: int | None = None, page_contents: BeautifulSoup | None = None
-    ) -> str | None:
+    def get_download_url(self, mod_id: int) -> str | None:
         """
-        Gets the download URL either from a mod_id or the page_contents HTML.
+        Gets the download URL for a mod by scraping its ModHub page.
+        Synchronous so it can be called from threaded workers
+        (APScheduler executors, Starlette background threadpool).
         :param mod_id: The id of the mod to download
+        :return: mod_url if it exists.
+        """
+        url = self.create_mod_url(mod_id=mod_id)
+        response = self._make_sync_request(url)
+        page_contents = BeautifulSoup(response.content, "html.parser")
+        return self.extract_download_url(page_contents)
+
+    @staticmethod
+    def extract_download_url(page_contents: BeautifulSoup) -> str | None:
+        """
+        Extract the download URL from already-scraped page contents.
         :param page_contents: the contents of a 'scraped page'
         :return: mod_url if it exists.
         """
-
-        if page_contents is None and mod_id is None:
-            raise ValueError("Either 'mod_id' or 'page_contents' must be provided.")
-
-        if page_contents is None:
-            url = self.create_mod_url(mod_id=mod_id)
-            response = await self._make_request(url)
-            page_contents = BeautifulSoup(response.content, "html.parser")
-
         download_button = page_contents.find(
             "a", class_="button button-buy button-middle button-no-margin expanded"
         )
@@ -98,7 +100,7 @@ class ModHubService:
         mod_name = page_contents.find("h2", class_="column title-label").get_text(strip=True)
         mod_info = page_contents.find("div", class_="table table-game-info")
 
-        file_url = await self.get_download_url(page_contents=page_contents)
+        file_url = self.extract_download_url(page_contents)
 
         if mod_info:
             mod_details = self.get_mod_details(mod_info)
@@ -296,6 +298,28 @@ class ModHubService:
             return []
 
         return pagination
+
+    @staticmethod
+    def _make_sync_request(url: str, headers: dict | None = None) -> Response:
+        """
+        Synchronous helper to make requests to Farming Simulator's ModHub.
+        Used by code running in worker threads (no event loop).
+        :param url: The url to request.
+        :return: The response data.
+        """
+        with Client() as client:
+            try:
+                logger.debug("Making request to ModHub url: %s", url)
+                response = client.get(url=url, headers=headers if headers else {})
+                response.raise_for_status()
+            except HTTPStatusError as exc:
+                logger.error(
+                    f"Unable to connect to the ModHub - got status code: {exc.response.status_code}"
+                )
+                raise HTTPError(
+                    message=f"Request failed with status code: {exc.response.status_code}"
+                )
+        return response
 
     @staticmethod
     async def _make_request(url: str, headers: dict | None = None) -> Response:

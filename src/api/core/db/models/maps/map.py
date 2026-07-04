@@ -10,7 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
     from src.api.core.db.models.assets import Asset
-    from src.api.core.db.models.mods import Dependency, ModDescription
+    from src.api.core.db.models.mods import ChangeLog, Dependency, ModDescription
 
 from src.api.constants import IngestionStatus
 from src.api.core.db.models._model_base import SqlAlchemyBase
@@ -64,11 +64,15 @@ class Map(SqlAlchemyBase):
     )
 
     dependencies: Mapped[list[Dependency]] = relationship(
-"Dependency", secondary="map_dependencies"
+        "Dependency", secondary="map_dependencies"
     )
 
     assets: Mapped[list[Asset]] = relationship(
         "Asset",
         primaryjoin="and_(foreign(Asset.entity_id) == Map.id, Asset.entity_type == 'map')",
         viewonly=True,
+    )
+
+    changelogs: Mapped[list[ChangeLog]] = relationship(
+        "ChangeLog", back_populates="map", cascade="all, delete-orphan"
     )
