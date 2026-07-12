@@ -9,9 +9,10 @@ from apscheduler.triggers.interval import IntervalTrigger
 from src.api.tasks.map_tasks import (
     download_pending_maps,
     extract_files_from_maps,
+    generate_map_assets,
     get_new_maps,
     parse_map_xml,
-    retry_stalled_downloads, generate_map_assets,
+    retry_stalled_downloads,
 )
 from src.api.tasks.scheduler import JobModel, Scheduler
 
