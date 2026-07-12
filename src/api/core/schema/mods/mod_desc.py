@@ -22,7 +22,7 @@ class MapConfigModel(BaseModel):
 
     Only the filenames are stored — the full S3 path is constructed by
     the service layer using the map's known restructured directory layout
-    (all config XML files live under config/).
+    (all config XML files live under config/, image assets under assets/).
     """
 
     config_filename: str | None = None
@@ -37,7 +37,6 @@ class MapConfigModel(BaseModel):
         "vehicles_filename",
         "placeables_filename",
         "items_filename",
-        "preview_filename",
         mode="before",
     )
     @classmethod
@@ -51,6 +50,22 @@ class MapConfigModel(BaseModel):
         if value is None:
             return None
         return value.split("/")[-1]
+
+    @field_validator("preview_filename", mode="before")
+    @classmethod
+    def extract_image_filename(cls, value: str | None) -> str | None:
+        """
+        Strip any directory prefix and normalise the extension.
+        modDesc.xml sometimes lists images as '.png', but the actual file
+        extracted into the bucket is always .dds.
+
+        E.g. 'icons/preview.png' -> 'preview.dds'
+        """
+        if value is None:
+            return None
+        filename = value.split("/")[-1]
+        stem = filename.rsplit(".", 1)[0]
+        return f"{stem}.dds"
 
 
 class ModDescModel(BaseModel):
@@ -72,14 +87,17 @@ class ModDescModel(BaseModel):
     @classmethod
     def extract_filename(cls, value: str | None) -> str | None:
         """
-        Strip any directory prefix from the modDesc path and return just
-        the filename.
+        Strip any directory prefix and normalise the extension.
+        modDesc.xml sometimes lists the icon as .png but the actual file
+        extracted into the bucket is always .dds.
 
-        E.g. 'icons/icon_FS25_Le_Mechet.png' -> 'icon_FS25_Le_Mechet.png'
+        e.g. 'icons/icon_FS25_Le_Mechet.png' -> 'icon_FS25_Le_Mechet.dds'
         """
         if value is None:
             return None
-        return value.split("/")[-1]
+        filename = value.split("/")[-1]
+        stem = filename.rsplit(".", 1)[0]
+        return f"{stem}.dds"
 
 
 class DependencyResponse(BaseModel):

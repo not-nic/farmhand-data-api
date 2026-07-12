@@ -8,6 +8,7 @@ map description, config file paths, icon and preview assets, and mod dependencie
 from sqlalchemy.orm import Session
 
 from src.api.constants import AssetType, EntityType
+from src.api.core.config import settings
 from src.api.core.db.models import Map
 from src.api.core.db.models.mods import ChangeLog
 from src.api.core.logger import logger
@@ -16,7 +17,7 @@ from src.api.core.repositories.mod_description_repository import ModDescriptionR
 from src.api.core.schema.mods.mod_desc import ModDescModel
 from src.api.handlers.xml.base_xml_handler import BaseXmlHandler
 from src.api.parsers.xml.mod_desc_xml_parser import ModDescXmlParser
-from src.api.services.assets_service import AssetsService
+from src.api.services.assets.assets_service import AssetsService
 from src.api.services.aws.aws_service import AwsService
 
 
@@ -41,7 +42,6 @@ class ModDescHandler(BaseXmlHandler[ModDescModel]):
     def process(self, map_obj: Map) -> None:
         """
         Get, parse, and persist modDesc.xml for the given map.
-        Skips maps without a data_uri as their files are not yet extracted.
         :param map_obj: The map to process.
         """
         if not map_obj.data_uri:
@@ -62,8 +62,9 @@ class ModDescHandler(BaseXmlHandler[ModDescModel]):
 
     def _store(self, map_obj: Map, parsed: ModDescModel) -> None:
         """
-        Persist all data extracted from modDesc.xml.
-        Upserts the ModDescription, creates assets, and associates dependencies.
+        Persist all data extracted from modDesc.xml, upserts the ModDescription,
+        assets, and associates dependencies.
+
         :param map_obj: The parent map.
         :param parsed: The parsed ModDescModel.
         """
@@ -90,6 +91,7 @@ class ModDescHandler(BaseXmlHandler[ModDescModel]):
         Replace the map's changelog entries with the freshly parsed set.
         The description text is always the source of truth, so old
         entries are cleared before the new ones are added.
+
         :param map_obj: The parent map.
         :param parsed: The parsed ModDescModel.
         """
@@ -105,30 +107,45 @@ class ModDescHandler(BaseXmlHandler[ModDescModel]):
 
     def _create_assets(self, map_obj: Map, parsed: ModDescModel) -> None:
         """
-        Create ICON and PREVIEW asset records from modDesc.xml filenames.
+        Register ICON and PREVIEW asset metadata from modDesc.xml filenames.
+
         :param map_obj: The parent map.
         :param parsed: The parsed ModDescModel.
         """
         if parsed.icon_filename:
-            self.assets_service.create_asset(
-                entity_id=map_obj.id,
-                entity_type=EntityType.MAP,
-                filename=parsed.icon_filename,
-                asset_type=AssetType.ICON,
-            )
+            self._register_asset(map_obj, parsed.icon_filename, AssetType.ICON)
 
         config = parsed.map_config
         if config and config.preview_filename:
-            self.assets_service.create_asset(
-                entity_id=map_obj.id,
-                entity_type=EntityType.MAP,
-                filename=config.preview_filename,
-                asset_type=AssetType.PREVIEW,
-            )
+            self._register_asset(map_obj, config.preview_filename, AssetType.PREVIEW)
+
+    def _register_asset(self, map_obj: Map, filename: str, asset_type: AssetType) -> None:
+        """
+        Build the converted asset's target URI and register it against the map.
+
+        :param map_obj: The parent map.
+        :param filename: The original .dds filename from modDesc.xml.
+        :param asset_type: The type of asset (icon, preview, etc.).
+        """
+        converted_filename = self.assets_service.image_converter.convert_filename(
+            filename, self.assets_service.OUTPUT_FORMAT
+        )
+        asset_uri = self.assets_service.build_asset_uri(
+            map_obj.id, converted_filename, settings.AWS_S3_ASSETS_BUCKET_NAME
+        )
+
+        self.assets_service.register_asset(
+            entity_id=map_obj.id,
+            entity_type=EntityType.MAP,
+            asset_type=asset_type,
+            filename=filename,
+            asset_uri=asset_uri,
+        )
 
     def _associate_dependencies(self, map_obj: Map, parsed: ModDescModel) -> None:
         """
         Upsert required mod dependencies and associate them with the map.
+
         :param map_obj: The parent map.
         :param parsed: The parsed ModDescModel.
         """

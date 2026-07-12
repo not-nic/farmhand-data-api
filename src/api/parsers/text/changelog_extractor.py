@@ -7,23 +7,6 @@ from dataclasses import dataclass, field
 
 from src.api.core.schema.mods.mod_desc import ChangeLogModel
 
-_VERSION_RE = re.compile(r"v?(\d+(?:\.\d+){1,4})")
-_HEADER_KEYWORDS = ("changelog", "update")
-_BULLET_PREFIXES = ("-", "•", "*")
-
-_REQUIRES_SAVE_PATTERNS = (
-    re.compile(r"new savegame is required", re.I),
-    re.compile(r"a new save(?:game)? is required", re.I),
-    re.compile(r"new save(?:game)? required", re.I),
-    re.compile(r"save(?:game)? recommended", re.I),
-)
-_NO_SAVE_PATTERNS = (
-    re.compile(r"does not require (?:a )?new save(?:game)?", re.I),
-    re.compile(r"no new save(?:game)?(?:\s+is)? required", re.I),
-    re.compile(r"not require.*save", re.I),
-    re.compile(r"savegame is not required", re.I),
-)
-
 
 @dataclass
 class ExtractedChangelogs:
@@ -40,6 +23,22 @@ class ChangelogExtractor:
     Splits a raw description into a cleaned description with changelog
     sections removed and an ordered list of ChangeLogModel entries.
     """
+    VERSION_REGEX = re.compile(r"v?(\d+(?:\.\d+){1,4})")
+    HEADERS = ("changelog", "update")
+    LIST_PREFIX = ("-", "•", "*")
+
+    REQUIRES_NEW_SAVE = (
+        re.compile(r"new savegame is required", re.I),
+        re.compile(r"a new save(?:game)? is required", re.I),
+        re.compile(r"new save(?:game)? required", re.I),
+        re.compile(r"save(?:game)? recommended", re.I),
+    )
+    NO_NEW_SAVE = (
+        re.compile(r"does not require (?:a )?new save(?:game)?", re.I),
+        re.compile(r"no new save(?:game)?(?:\s+is)? required", re.I),
+        re.compile(r"not require.*save", re.I),
+        re.compile(r"savegame is not required", re.I),
+    )
 
     def extract(self, text: str) -> ExtractedChangelogs:
         """
@@ -74,41 +73,37 @@ class ChangelogExtractor:
 
         return ExtractedChangelogs(description=clean_description, changelogs=changelogs)
 
-    @staticmethod
-    def _is_header(line: str) -> bool:
+    def _is_header(self, line: str) -> bool:
         """Return True if the line looks like a changelog section header."""
         lowered = line.strip("# ").lower()
-        return any(lowered.startswith(kw) for kw in _HEADER_KEYWORDS)
+        return any(lowered.startswith(kw) for kw in self.HEADERS)
 
-    @staticmethod
-    def _extract_version(header_line: str) -> str | None:
+    def _extract_version(self, header_line: str) -> str | None:
         """Pull the version number out of a header line, if present."""
-        match = _VERSION_RE.search(header_line)
+        match = self.VERSION_REGEX.search(header_line)
         return match.group(1) if match else None
 
-    @staticmethod
-    def _extract_notes(lines: list[str]) -> list[str]:
+    def _extract_notes(self, lines: list[str]) -> list[str]:
         """Return the non-empty note lines within a changelog block, bullets stripped."""
         notes = []
         for line in lines:
             stripped = line.strip()
             if not stripped:
                 continue
-            for prefix in _BULLET_PREFIXES:
+            for prefix in self.LIST_PREFIX:
                 if stripped.startswith(prefix):
                     stripped = stripped[1:].strip()
                     break
             notes.append(stripped)
         return notes
 
-    @staticmethod
-    def _requires_new_savegame(block_text: str) -> bool | None:
+    def _requires_new_savegame(self, block_text: str) -> bool | None:
         """
         Determine whether the block states a new savegame is required.
         Returns None if the topic is not mentioned at all.
         """
-        if any(p.search(block_text) for p in _NO_SAVE_PATTERNS):
+        if any(p.search(block_text) for p in self.NO_NEW_SAVE):
             return False
-        if any(p.search(block_text) for p in _REQUIRES_SAVE_PATTERNS):
+        if any(p.search(block_text) for p in self.REQUIRES_NEW_SAVE):
             return True
         return None

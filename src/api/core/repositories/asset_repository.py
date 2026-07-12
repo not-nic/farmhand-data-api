@@ -33,6 +33,20 @@ class AssetRepository(Repository[Asset]):
             .all()
         )
 
+    def get_pending(self, entity_type: EntityType | None = None) -> list[Asset]:
+        """
+        Get assets registered but not yet converted and uploaded.
+        :param entity_type: Optionally filter to a single entity type.
+        """
+        query = self.db.query(self.model).filter(self.model.is_ingested.is_(False))
+        if entity_type:
+            query = query.filter(self.model.entity_type == entity_type)
+        return query.all()
+
+    def mark_ingested(self, asset: Asset) -> Asset:
+        """Mark an asset as successfully converted and uploaded."""
+        return self.update(asset, is_ingested=True)
+
     def get_by_entity_and_type(
         self,
         entity_type: EntityType,

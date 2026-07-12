@@ -4,7 +4,7 @@ SQLAlchemy model for a farmhand Asset.
 
 from uuid import uuid7
 
-from sqlalchemy import UUID, Enum, Index, Integer, String
+from sqlalchemy import UUID, Boolean, Enum, Index, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
 from src.api.constants import AssetType, EntityType
@@ -38,6 +38,7 @@ class Asset(SqlAlchemyBase):
     )
     filename: Mapped[str] = mapped_column(String(255), nullable=False)
     asset_uri: Mapped[str] = mapped_column(String(500), nullable=False)
+    is_ingested: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
 
     __table_args__ = (
         Index("ix_assets_entity", "entity_type", "entity_id"),

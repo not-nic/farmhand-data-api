@@ -56,7 +56,7 @@ def mock_s3() -> Generator[tuple[S3Client, str], Any]:
     """
     with mock_aws():
         client: S3Client = boto3.client("s3", region_name="eu-west-2")
-        bucket_name: str = settings.AWS_S3_BUCKET_NAME
+        bucket_name: str = settings.AWS_S3_INGEST_BUCKET_NAME
 
         client.create_bucket(
             Bucket=bucket_name, CreateBucketConfiguration={"LocationConstraint": "eu-west-2"}

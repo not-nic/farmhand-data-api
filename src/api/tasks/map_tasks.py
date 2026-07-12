@@ -4,6 +4,7 @@ Tasks for ingesting maps into the farmhand data-api in the background.
 
 from src.api.core.db.db_setup import db_session
 from src.api.core.logger import logger
+from src.api.services.assets.asset_ingestion_service import AssetIngestionService
 from src.api.services.maps.map_ingestion_service import MapIngestionService
 from src.api.services.maps.map_xml_parser_service import MapXmlParserService
 
@@ -49,7 +50,7 @@ def parse_map_xml() -> None:
     files in S3 but do not yet have a ModDescription record.
     """
     with db_session() as db:
-        logger.info("[MAP TASKS]: Parsing modDesc.xml for extracted maps.")
+        logger.debug("[MAP TASKS]: Parsing modDesc.xml for extracted maps.")
         MapXmlParserService(db=db).parse_all_mod_descriptions()
 
 
@@ -61,3 +62,12 @@ async def retry_stalled_downloads() -> None:
     with db_session() as db:
         logger.debug("[MAP TASKS]: Checking for stalled downloads to retry.")
         await MapIngestionService(db=db).reprocess_stalled_downloads()
+
+
+def generate_map_assets() -> None:
+    """
+    Create map assets
+    """
+    with db_session() as db:
+        logger.debug("[MAP TASKS]: Generating pending map assets.")
+        AssetIngestionService(db).process_map_assets()

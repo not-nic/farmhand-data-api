@@ -13,7 +13,7 @@ from src.api.core.db.models import Map
 from src.api.core.logger import logger
 from src.api.handlers.xml.base_xml_handler import BaseXmlHandler
 from src.api.handlers.xml.mod_desc_handler import ModDescHandler
-from src.api.services.assets_service import AssetsService
+from src.api.services.assets.assets_service import AssetsService
 from src.api.services.aws.aws_service import AwsService
 from src.api.services.maps.map_service import MapService
 
@@ -90,7 +90,7 @@ class MapXmlParserService:
         pending = [m for m in maps if m.mod_description is None]
 
         if not pending:
-            logger.info("[MapXmlParserService]: All maps already have a ModDescription.")
+            logger.debug("[MapXmlParserService]: All maps already have a ModDescription.")
             return
 
         logger.info("[MapXmlParserService]: Parsing %d map(s).", len(pending))

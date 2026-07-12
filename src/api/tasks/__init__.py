@@ -11,7 +11,7 @@ from src.api.tasks.map_tasks import (
     extract_files_from_maps,
     get_new_maps,
     parse_map_xml,
-    retry_stalled_downloads,
+    retry_stalled_downloads, generate_map_assets,
 )
 from src.api.tasks.scheduler import JobModel, Scheduler
 
@@ -24,6 +24,7 @@ base_scheduler.add_job(JobModel(
     name="Scrape ModHub for new Farming Simulator maps",
     group="discovery",
 ))
+
 
 base_scheduler.add_job(JobModel(
     func=download_pending_maps,
@@ -38,6 +39,7 @@ base_scheduler.add_job(JobModel(
     enabled=False
 ))
 
+
 base_scheduler.add_job(JobModel(
     func=extract_files_from_maps,
     trigger=IntervalTrigger(
@@ -47,8 +49,8 @@ base_scheduler.add_job(JobModel(
     id="extract_files_from_maps",
     name="Extract files from DOWNLOADED maps",
     group="pipeline",
-    enabled=False
 ))
+
 
 base_scheduler.add_job(JobModel(
     func=parse_map_xml,
@@ -56,8 +58,8 @@ base_scheduler.add_job(JobModel(
     id="parse_map_xml",
     name="Parse modDesc.xml for extracted maps",
     group="pipeline",
-    enabled=False
 ))
+
 
 base_scheduler.add_job(JobModel(
     func=retry_stalled_downloads,
@@ -68,3 +70,11 @@ base_scheduler.add_job(JobModel(
     enabled=False
 ))
 
+
+base_scheduler.add_job(JobModel(
+    func=generate_map_assets,
+    trigger=IntervalTrigger(minutes=2),
+    id="generate_map_assets",
+    name="Convert and upload pending map assets",
+    group="pipeline",
+))

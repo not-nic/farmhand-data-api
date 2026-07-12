@@ -71,6 +71,15 @@ def get_filename_from_url(file_url: str) -> str:
     return file_url.split("/")[-1]
 
 
+def key_from_s3_uri(uri: str) -> str:
+    """
+    Extract the object key from a full S3 URI.
+    :param uri: S3 URI e.g. 's3://farmhand-assets/123/assets/icon.png'.
+    :return: The object key, e.g. '123/assets/icon.png'.
+    """
+    return uri.split("/", 3)[-1].strip().strip('"')
+
+
 def extension_to_content_type(extension: str) -> str:
     """
     Converts a file extension into its respective content type.

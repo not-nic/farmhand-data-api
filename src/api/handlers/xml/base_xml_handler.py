@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from src.api.core.db.models import Map
 from src.api.core.logger import logger
-from src.api.services.assets_service import AssetsService
+from src.api.services.assets.assets_service import AssetsService
 from src.api.services.aws.aws_service import AwsService
 
 

@@ -55,6 +55,7 @@ class ContentType(StrEnum):
     XML = "application/xml"
     I3D = "application/xml"
     PNG = "image/png"
+    WEBP = "image/webp"
     JPG = "image/jpeg"
     JPEG = "image/jpeg"
     BINARY_OCTET_STREAM = "binary/octet-stream"
