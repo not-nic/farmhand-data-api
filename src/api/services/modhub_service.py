@@ -63,8 +63,7 @@ class ModHubService:
     def get_download_url(self, mod_id: int) -> str | None:
         """
         Gets the download URL for a mod by scraping its ModHub page.
-        Synchronous so it can be called from threaded workers
-        (APScheduler executors, Starlette background threadpool).
+
         :param mod_id: The id of the mod to download
         :return: mod_url if it exists.
         """

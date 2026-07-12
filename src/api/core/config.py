@@ -97,7 +97,7 @@ class TestSettings(BaseSettingsConfig):
     AWS_S3_INGEST_BUCKET_NAME: str = "farmhand-unit-testing-bucket"
     AWS_S3_ASSETS_BUCKET_NAME: str = "farmhand-unit-testing-asset-bucket"
 
-    MINIO_ENDPOINT_URL: str = ""
+    MINIO_ENDPOINT_URL: str | None = None
     MINIO_PUBLIC_ENDPOINT_URL: str = ""
 
     APPLICATION_CONFIG: str = os.path.join("config", "application.yml")

@@ -126,7 +126,7 @@ def mock_mod_hub_service(mocker, mod_detail) -> ModHubService:
     mock_service.scrape_mod.return_value = mod_detail
     mock_service.scrape_mods.return_value = []
     # remove: mock_service.download_mod.return_value = b"zip-file-contents"
-    mock_service.get_download_url = mocker.AsyncMock(
+    mock_service.get_download_url = mocker.Mock(
         return_value=f"{settings.BASE_FS_URL}/download/{mod_detail.zip_filename}"
     )
 
