@@ -36,7 +36,6 @@ base_scheduler.add_job(JobModel(
     name="Download PENDING maps to S3",
     group="pipeline",
     executor="downloads",
-    enabled=False
 ))
 
 
