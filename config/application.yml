@@ -1,14 +1,12 @@
 farmhand:
   parser_filters:
     always_include:
-      overview:
-        - "textures/ui/*.dds"
-        - "preview.dds"
-        - "preview_*.dds"
-        - "*_preview.dds"
-        - "overview.dds"
-        - "overview_*.dds"
-        - "*_overview.dds"
+      assets:
+        - "**/textures/ui/*.dds"
+        - "**/*preview*.dds"
+        - "**/*overview*.dds"
+        - "**/*preview*.png"
+        - "**/*overview*.png"
       xml:
         - "config/*.xml"
         - "xml/*.xml" # Some maps (i.e. Pallegney) store XML in /xml
