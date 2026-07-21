@@ -37,7 +37,6 @@ base_scheduler.add_job(JobModel(
     name="Download PENDING maps to S3",
     group="pipeline",
     executor="downloads",
-    enabled=False
 ))
 
 
@@ -68,7 +67,6 @@ base_scheduler.add_job(JobModel(
     id="retry_stalled_downloads",
     name="Reset stalled DOWNLOADING maps back to PENDING",
     group="recovery",
-    enabled=False
 ))
 
 
