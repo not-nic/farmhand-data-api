@@ -39,6 +39,7 @@ class JobModel:
     args: list | None = None
     kwargs: dict | None = None
     replace_existing: bool = True
+    executor: str = "default"
 
 
 class Scheduler:
@@ -83,6 +84,7 @@ class Scheduler:
                 args=job.args,
                 kwargs=job.kwargs,
                 replace_existing=job.replace_existing,
+                executor=job.executor
             )
 
         groups = sorted({job.group for job in enabled})

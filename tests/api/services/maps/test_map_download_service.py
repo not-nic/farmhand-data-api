@@ -13,7 +13,7 @@ class TestMapDownloadService:
     Unit tests for the map download service.
     """
 
-    async def test_map_service_downloads_map(
+    def test_map_service_downloads_map(
             self,
             db,
             mocker,
@@ -41,13 +41,13 @@ class TestMapDownloadService:
             return_value=512 * 1024 * 1024
         )
 
-        uri = await map_download_service.download_map(mod_detail.id, mod_detail.zip_filename)
+        uri = map_download_service.download_map(mod_detail.id, mod_detail.zip_filename)
 
         mock_mod_hub_service.get_download_url.assert_called_once_with(mod_id=mod_detail.id)
         mock_mod_hub_service.download_mod_stream.assert_called_once()
         assert uri == expected_uri
 
-    async def test_map_service_raises_http_error_when_download_fails(
+    def test_map_service_raises_http_error_when_download_fails(
             self,
             db,
             mod_detail,
@@ -63,9 +63,9 @@ class TestMapDownloadService:
 
         with pytest.raises(HTTPError):
             map_download_service = MapDownloadService(mod_hub_service=mock_mod_hub_service)
-            await map_download_service.download_map(mod_detail.id, mod_detail.zip_filename)
+            map_download_service.download_map(mod_detail.id, mod_detail.zip_filename)
 
-    async def test_map_service_raises_client_error_when_s3_upload_fails(
+    def test_map_service_raises_client_error_when_s3_upload_fails(
             self, mocker, db, mod_detail, mock_mod_hub_service
     ):
         """
@@ -86,4 +86,4 @@ class TestMapDownloadService:
         )
 
         with pytest.raises(ClientError):
-            await map_download_service.download_map(mod_detail.id, mod_detail.zip_filename)
+            map_download_service.download_map(mod_detail.id, mod_detail.zip_filename)

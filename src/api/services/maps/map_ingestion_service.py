@@ -3,6 +3,7 @@ A Python module containing the Map Ingestion Service, the overall
 service to manage, getting new maps, ingesting them, and storing map
 data.
 """
+
 from zipfile import BadZipFile
 
 from botocore.exceptions import ClientError
@@ -14,7 +15,7 @@ from src.api.core.config import settings
 from src.api.core.db.models import Map
 from src.api.core.exceptions import MapProcessingError
 from src.api.core.logger import logger
-from src.api.services.aws_service import AwsService
+from src.api.services.aws.aws_service import AwsService
 from src.api.services.maps.map_download_service import MapDownloadService
 from src.api.services.maps.map_extraction_service import MapExtractionService
 from src.api.services.maps.map_scraping_service import MapScrapingService
@@ -85,7 +86,7 @@ class MapIngestionService:
             "Successfully scraped and downloaded '%d' maps from the ModHub.", scraped_count
         )
 
-    async def download_pending_maps(self) -> None:
+    def download_pending_maps(self) -> None:
         """
         Check all maps with a status of PENDING and download it from the ModHub
         and store the archive in S3.
@@ -108,7 +109,7 @@ class MapIngestionService:
                 ingestion_status=IngestionStatus.DOWNLOADING,
                 ingestion_error=None,
             )
-            await self._download_map(map_obj)
+            self._download_map(map_obj)
 
         logger.info("All %d map(s) downloaded.", len(pending_maps))
 
@@ -150,7 +151,7 @@ class MapIngestionService:
         """Pick up every PARSED map, transfer assets, and mark it COMPLETE."""
         pass
 
-    async def reingest_map(self, map_id: int) -> None:
+    def reingest_map(self, map_id: int) -> None:
         """
         Manually trigger the re-ingestion of a map for a given Map ID.
         :param map_id: The ModHub ID of the map to reingest.
@@ -168,7 +169,7 @@ class MapIngestionService:
             ingestion_status=IngestionStatus.DOWNLOADING,
             ingestion_error=None,
         )
-        await self._download_map(map_obj)
+        self._download_map(map_obj)
 
         map_obj = self.map_service.get_map_by_id(map_id)
 
@@ -189,14 +190,14 @@ class MapIngestionService:
 
         logger.info("Reingest complete for '%s' (%d).", map_obj.name, map_obj.id)
 
-    async def _download_map(self, map_obj: Map) -> None:
+    def _download_map(self, map_obj: Map) -> None:
         """
         Download a single map archive to S3 and advance its status, or
         mark it FAILED with the error if anything goes wrong.
         """
         logger.info("Downloading map '%s' (%d).", map_obj.name, map_obj.id)
         try:
-            await self.download_service.download_map(map_obj.id, map_obj.zip_filename)
+            self.download_service.download_map(map_obj.id, map_obj.zip_filename)
             self.map_service.update_map(
                 map_obj,
                 ingestion_status=IngestionStatus.DOWNLOADED,

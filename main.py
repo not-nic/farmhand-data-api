@@ -4,6 +4,7 @@ Entrypoint for starting the application.
 
 from contextlib import asynccontextmanager
 
+from apscheduler.executors.pool import ThreadPoolExecutor
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import FastAPI, Request, status
 from fastapi.encoders import jsonable_encoder
@@ -16,7 +17,12 @@ from src.api.routes import api_router
 from src.api.tasks import base_scheduler
 from src.api.utils import format_pydantic_errors
 
-scheduler = AsyncIOScheduler()
+scheduler = AsyncIOScheduler(
+    executors={
+        "default": ThreadPoolExecutor(settings.SCHEDULER_THREAD_POOL_SIZE),
+        "downloads": ThreadPoolExecutor(settings.DOWNLOAD_EXECUTOR_MAX_WORKERS),
+    }
+)
 
 
 @asynccontextmanager

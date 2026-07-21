@@ -34,18 +34,19 @@ class AwsService:
     AWS service class used for uploading items into S3.
     """
 
-    def __init__(self, bucket_name: str | None = None):
+    def __init__(self, bucket_name: str | None = None, endpoint_url: str | None = None):
         """
         Constructor for the AwsService
         :param bucket_name: (str) of the bucket to save content to.
         """
-        self.bucket: str = bucket_name or settings.AWS_S3_BUCKET_NAME
+        self.bucket: str = bucket_name or settings.AWS_S3_INGEST_BUCKET_NAME
+        self.endpoint_url = endpoint_url or settings.MINIO_ENDPOINT_URL
 
         self.s3: S3Client = boto3.client(
             "s3",
             aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
             aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
-            endpoint_url=settings.MINIO_ENDPOINT_URL or None,
+            endpoint_url=self.endpoint_url,
             region_name=settings.AWS_REGION,
         )
 
@@ -53,7 +54,7 @@ class AwsService:
         self,
         object_key: str,
         method_type: Literal["get_object", "put_object"],
-        expiration_time=3600,
+        expiration_time=300,
     ) -> str | None:
         """
         Generate a pre-signed URL to upload or view a mod in a farmhand bucket
@@ -74,6 +75,40 @@ class AwsService:
             raise
 
         return url
+
+    def put_object(self, key: str, body: bytes, content_type: str | None = None) -> str:
+        """
+        Upload raw bytes to a specific key in the bucket.
+        :param key: The full S3 object key, e.g. '123/assets/icon.png'.
+        :param body: The raw bytes to upload.
+        :param content_type: Optional MIME type for the object.
+        :return: The S3 URI of the uploaded object.
+        """
+        extra_args = {"ContentType": content_type} if content_type else {}
+        try:
+            self.s3.put_object(Bucket=self.bucket, Key=key, Body=body, **extra_args)
+            logger.debug("Put object '%s' to %s.", key, self.bucket)
+            return f"s3://{self.bucket}/{key}"
+        except ClientError as exc:
+            logger.warning("Failed to put object '%s' to %s: %s", key, self.bucket, exc)
+            raise
+
+    def get_content_from_uri(self, uri: str) -> bytes:
+        """
+        Fetch the raw content of an S3 object directly from its S3 URI.
+        :param uri: The S3 URI e.g. 's3://farmhand-map-ingest/359448/FS25_Am_MLK/config/modDesc.xml'
+        :return: Raw bytes of the object.
+        """
+        key = uri.split("/", 3)[-1]
+        try:
+            response = self.s3.get_object(Bucket=self.bucket, Key=key)
+            return response["Body"].read()
+        except self.s3.exceptions.NoSuchKey:
+            logger.warning("No object found for '%s' in %s.", uri, self.bucket)
+            raise
+        except ClientError as exc:
+            logger.warning("Failed to get content for '%s' from %s: %s", uri, self.bucket, exc)
+            raise
 
     def upload_object(self, file_obj: bytes, mod_id: int, file_name: str) -> str:
         """

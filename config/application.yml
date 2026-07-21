@@ -4,6 +4,7 @@ farmhand:
       overview:
         - "textures/ui/*.dds"
         - "preview.dds"
+        - "preview_*.dds"
         - "*_preview.dds"
         - "overview.dds"
         - "overview_*.dds"

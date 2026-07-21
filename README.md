@@ -3,6 +3,8 @@
 This is the `farmhand-data-api` which is a Python backend API for ingesting data into the farmhand application.
 It handles scraping mods from the ModHub, XML conversion and Map & Savegame data.
 
+Access the data API here: https://data.farmhand.uk/api/v1/maps/
+
 > [!NOTE]
 > See the `farmhand-service` backend API here: https://github.com/not-nic/farmhand
 
@@ -28,7 +30,9 @@ It handles scraping mods from the ModHub, XML conversion and Map & Savegame data
    AWS_ACCESS_KEY_ID=farmhand-minio-user
    AWS_SECRET_ACCESS_KEY=minio-password
    AWS_REGION=eu-west-2
-   AWS_S3_BUCKET_NAME=farmhand-map-ingest-bucket
+   AWS_S3_INGEST_BUCKET_NAME=farmhand-map-ingest-bucket
+   AWS_S3_ASSETS_BUCKET_NAME=farmhand-assets-bucket
+   MINIO_PUBLIC_ENDPOINT_URL=http://localhost:9000
    MINIO_ENDPOINT_URL=http://minio:9000
    ```
 

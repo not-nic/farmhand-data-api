@@ -56,7 +56,7 @@ def mock_s3() -> Generator[tuple[S3Client, str], Any]:
     """
     with mock_aws():
         client: S3Client = boto3.client("s3", region_name="eu-west-2")
-        bucket_name: str = settings.AWS_S3_BUCKET_NAME
+        bucket_name: str = settings.AWS_S3_INGEST_BUCKET_NAME
 
         client.create_bucket(
             Bucket=bucket_name, CreateBucketConfiguration={"LocationConstraint": "eu-west-2"}
@@ -126,7 +126,7 @@ def mock_mod_hub_service(mocker, mod_detail) -> ModHubService:
     mock_service.scrape_mod.return_value = mod_detail
     mock_service.scrape_mods.return_value = []
     # remove: mock_service.download_mod.return_value = b"zip-file-contents"
-    mock_service.get_download_url = mocker.AsyncMock(
+    mock_service.get_download_url = mocker.Mock(
         return_value=f"{settings.BASE_FS_URL}/download/{mod_detail.zip_filename}"
     )
 

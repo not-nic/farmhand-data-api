@@ -5,7 +5,6 @@ Module containing the config / settings for the Farmhand Data API.
 import os
 
 from pydantic import PostgresDsn, computed_field
-from pydantic_core import MultiHostUrl
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,11 +28,15 @@ class BaseSettingsConfig(BaseSettings):
     BASE_MOD_URL: str = f"{BASE_FS_URL}/mod.php"
 
     MAX_MAP_DOWNLOADS: int = 10
+    MAX_ASSET_INGESTION_BATCH: int = 10
     STALLED_DOWNLOAD_THRESHOLD_MINUTES: int = 30
 
     STREAM_MULTIPART_CHUNK_SIZE_MB: int = 32
     STREAM_MAX_CONCURRENCY: int = 2
     DOWNLOAD_CHUNK_SIZE_MB: int = 8
+
+    SCHEDULER_THREAD_POOL_SIZE: int = 8
+    DOWNLOAD_EXECUTOR_MAX_WORKERS: int = 4
 
 
 class Settings(BaseSettingsConfig):
@@ -57,7 +60,10 @@ class Settings(BaseSettingsConfig):
     AWS_ACCESS_KEY_ID: str
     AWS_SECRET_ACCESS_KEY: str
     AWS_REGION: str
-    AWS_S3_BUCKET_NAME: str
+
+    AWS_S3_INGEST_BUCKET_NAME: str
+    AWS_S3_ASSETS_BUCKET_NAME: str
+    MINIO_PUBLIC_ENDPOINT_URL: str
 
     MINIO_ENDPOINT_URL: str | None = None
 
@@ -66,7 +72,7 @@ class Settings(BaseSettingsConfig):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def DATABASE_URL(self) -> PostgresDsn:
-        return MultiHostUrl.build(
+        return PostgresDsn.build(
             scheme="postgresql+psycopg",
             username=self.POSTGRES_USER,
             password=self.POSTGRES_PASSWORD,
@@ -87,9 +93,12 @@ class TestSettings(BaseSettingsConfig):
     AWS_ACCESS_KEY_ID: str = "farmhand-unit-test"
     AWS_SECRET_ACCESS_KEY: str = "farmhand-unit-test"
     AWS_REGION: str = "eu-west-2"
-    AWS_S3_BUCKET_NAME: str = "farmhand-unit-testing-bucket"
 
-    MINIO_ENDPOINT_URL: str = ""
+    AWS_S3_INGEST_BUCKET_NAME: str = "farmhand-unit-testing-bucket"
+    AWS_S3_ASSETS_BUCKET_NAME: str = "farmhand-unit-testing-asset-bucket"
+
+    MINIO_ENDPOINT_URL: str | None = None
+    MINIO_PUBLIC_ENDPOINT_URL: str = ""
 
     APPLICATION_CONFIG: str = os.path.join("config", "application.yml")
 

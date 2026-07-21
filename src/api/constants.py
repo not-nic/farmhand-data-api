@@ -55,6 +55,7 @@ class ContentType(StrEnum):
     XML = "application/xml"
     I3D = "application/xml"
     PNG = "image/png"
+    WEBP = "image/webp"
     JPG = "image/jpeg"
     JPEG = "image/jpeg"
     BINARY_OCTET_STREAM = "binary/octet-stream"
@@ -83,3 +84,25 @@ class IngestionStatus(StrEnum):
     PARSED = "parsed"
     COMPLETE = "complete"
     FAILED = "failed"
+
+
+class AssetType(StrEnum):
+    """
+    Assets used in a farming simulator Mod,
+    e.g. Icon, Overview and Preview .dds.
+
+    Map assets:
+        ICON - mod icon from modDesc.xml iconFilename.
+        OVERVIEW - top-down map overview image from maps.xml.
+        PREVIEW - map preview/thumbnail image.
+    """
+    ICON = "icon"
+    OVERVIEW = "overview"
+    PREVIEW = "preview"
+
+
+class EntityType(StrEnum):
+    """
+    Entity types that can own assets.
+    """
+    MAP = "map"

@@ -4,7 +4,7 @@ see: base_repository.py to see the base repository to inherit from.
 """
 from datetime import datetime
 
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from src.api.constants import IngestionStatus
 from src.api.core.db.models import Map
@@ -18,6 +18,22 @@ class MapRepository(Repository[Map]):
 
     def __init__(self, db: Session):
         super().__init__(db, Map)
+
+    def get_maps(self) -> list[Map]:
+        """
+        Get all maps with their related data for the API.
+        :return: (list) of maps.
+        """
+        return (
+            self.db.query(self.model)
+            .options(
+                joinedload(self.model.mod_description),
+                joinedload(self.model.dependencies),
+                joinedload(self.model.assets),
+                joinedload(self.model.changelogs),
+            )
+            .all()
+        )
 
     def get_by_status(self, status: IngestionStatus) -> list[Map]:
         """

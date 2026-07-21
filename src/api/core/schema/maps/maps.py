@@ -7,6 +7,12 @@ from datetime import date
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from src.api.constants import FarmhandMapFilters
+from src.api.core.schema.assets import AssetResponse
+from src.api.core.schema.mods.mod_desc import (
+    ChangeLogResponse,
+    DependencyResponse,
+    ModDescriptionResponse,
+)
 
 
 class MapModel(BaseModel):
@@ -66,6 +72,10 @@ class MapResponse(BaseModel):
     author: str
     release_date: date
     version: str
+    mod_description: ModDescriptionResponse | None = None
+    dependencies: list[DependencyResponse] = []
+    changelogs: list[ChangeLogResponse] = []
+    assets: list[AssetResponse] = []
 
     model_config = ConfigDict(from_attributes=True, arbitrary_types_allowed=True)
 

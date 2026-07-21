@@ -13,7 +13,7 @@ from src.api.constants import IngestionStatus
 from src.api.core.db.models import Map
 from src.api.core.exceptions import MapProcessingError
 from src.api.core.logger import logger
-from src.api.services.aws_service import AwsService
+from src.api.services.aws.aws_service import AwsService
 from src.api.services.file_parser_service import FileParserService
 from src.api.services.maps.map_service import MapService
 
