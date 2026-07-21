@@ -8,13 +8,10 @@ file type e.g. modDesc, maps, vehicles, etc., returning a typed Pydantic Model.
 from abc import ABC, abstractmethod
 from io import BytesIO
 from pathlib import Path
-from typing import TypeVar
 from xml.etree.ElementTree import Element, ParseError
 from xml.etree.ElementTree import parse as parse_xml
 
 from src.api.core.logger import logger
-
-T = TypeVar("T")
 
 
 class BaseXmlParser[T](ABC):

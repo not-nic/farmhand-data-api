@@ -39,7 +39,7 @@ class AssetIngestionService:
         if not pending:
             return
 
-        logger.info("[AssetIngestion]: Ingesting %d pending asset(s).", len(pending))
+        logger.info("[Asset-Ingestion]: Ingesting %d pending asset(s).", len(pending))
 
         ingested_count: int = 0
 
@@ -47,7 +47,7 @@ class AssetIngestionService:
             map_obj: Map = self.map_service.get_map_by_id(asset.entity_id)
             if not map_obj or not map_obj.data_uri:
                 logger.warning(
-                    "[AssetIngestion]: Skipping '%s' — map %d has no data_uri.",
+                    "[Asset-Ingestion]: Skipping '%s' — map %d has no data_uri.",
                     asset.filename,
                     asset.entity_id,
                 )
@@ -61,17 +61,17 @@ class AssetIngestionService:
                 ingested_count += 1
             except ClientError as exc:
                 logger.error(
-                    "[AssetIngestion]: Failed to fetch '%s' for map %d from S3: %s",
+                    "[Asset-Ingestion]: Failed to fetch '%s' for map %d from S3: %s",
                     asset.filename, asset.entity_id, exc,
                 )
             except WandException as exc:
                 logger.error(
-                    "[AssetIngestion]: Failed to convert '%s' for map %d: %s",
+                    "[Asset-Ingestion]: Failed to convert '%s' for map %d: %s",
                     asset.filename, asset.entity_id, exc,
                 )
 
         logger.info(
-            "[AssetIngestion]: %d/%d asset(s) ingested.",
+            "[Asset-Ingestion]: %d/%d asset(s) ingested.",
             ingested_count,
             len(pending),
         )

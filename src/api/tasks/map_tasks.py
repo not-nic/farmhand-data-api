@@ -50,7 +50,7 @@ def parse_map_xml() -> None:
     files in S3 but do not yet have a ModDescription record.
     """
     with db_session() as db:
-        logger.debug("[MAP TASKS]: Parsing modDesc.xml for extracted maps.")
+        logger.debug("[MAP TASKS]: Parsing Map XML for extracted maps.")
         MapXmlParserService(db=db).parse_all_mod_descriptions()
 
 

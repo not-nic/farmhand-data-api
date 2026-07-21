@@ -9,14 +9,10 @@ Routes:
 from fastapi import APIRouter, HTTPException, status
 
 from src.api.core.dependencies import SessionDep
-from src.api.core.logger import logger
 from src.api.core.schema.maps import (
-    MapModel,
     MapResponse,
     MapsResponse,
-    MapUploadResponse,
 )
-from src.api.services.aws.aws_service import AwsService
 from src.api.services.maps.map_service import MapService
 
 router = APIRouter(prefix="/maps", tags=["Maps"])
@@ -57,20 +53,3 @@ async def get_map_by_id(map_id: int, db: SessionDep) -> MapResponse:
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 
-
-@router.post("/upload")
-async def upload_default_map(map_request: MapModel, db: SessionDep) -> MapUploadResponse:
-    """
-    Upload a .zip file containing a map to be ingested into the farmhand-data-api.
-    :param map_request: Map details.
-    :param db: Database session dependency.
-    :return: Pre-signed URL for the upload.
-    """
-    map_service = MapService(db)
-    aws_service = AwsService()
-
-    map_obj = map_service.create_map(map_request)
-    logger.info("Creating map and presigned url for: '%s/%s'", map_obj.id, map_obj.zip_filename)
-
-    url = aws_service.generate_pre_signed_url(str(map_obj.id), "put_object")
-    return MapUploadResponse(id=map_obj.id, url=url)

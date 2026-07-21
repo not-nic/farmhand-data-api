@@ -14,7 +14,7 @@ from src.api.core.db.models.mods import ChangeLog
 from src.api.core.logger import logger
 from src.api.core.repositories.dependency_repository import DependencyRepository
 from src.api.core.repositories.mod_description_repository import ModDescriptionRepository
-from src.api.core.schema.mods.mod_desc import ModDescModel
+from src.api.core.schema.mods.mod_desc import MapConfigModel, ModDescModel
 from src.api.handlers.xml.base_xml_handler import BaseXmlHandler
 from src.api.parsers.xml.mod_desc_xml_parser import ModDescXmlParser
 from src.api.services.assets.assets_service import AssetsService
@@ -68,17 +68,17 @@ class ModDescHandler(BaseXmlHandler[ModDescModel]):
         :param map_obj: The parent map.
         :param parsed: The parsed ModDescModel.
         """
-        config = parsed.map_config
+        config = parsed.map_config or MapConfigModel()
 
         self.mod_description_repository.upsert(
             map_id=map_obj.id,
             title=parsed.title,
             description=parsed.description,
-            map_description=config.description if config else None,
-            config_filename=config.config_filename if config else None,
-            vehicles_filename=config.vehicles_filename if config else None,
-            placeables_filename=config.placeables_filename if config else None,
-            items_filename=config.items_filename if config else None,
+            map_description=config.description,
+            config_filename=config.config_filename,
+            vehicles_filename=config.vehicles_filename,
+            placeables_filename=config.placeables_filename,
+            items_filename=config.items_filename,
         )
 
         self._store_changelogs(map_obj, parsed)
@@ -115,8 +115,8 @@ class ModDescHandler(BaseXmlHandler[ModDescModel]):
         if parsed.icon_filename:
             self._register_asset(map_obj, parsed.icon_filename, AssetType.ICON)
 
-        config = parsed.map_config
-        if config and config.preview_filename:
+        config = parsed.map_config or MapConfigModel()
+        if config.preview_filename:
             self._register_asset(map_obj, config.preview_filename, AssetType.PREVIEW)
 
     def _register_asset(self, map_obj: Map, filename: str, asset_type: AssetType) -> None:

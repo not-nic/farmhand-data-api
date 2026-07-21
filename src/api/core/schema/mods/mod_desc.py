@@ -3,7 +3,9 @@ Pydantic models related to the modDesc.xml file used within a Farming Simulator
 Mod.
 """
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field
+
+from src.api.core.schema.validators import DDSFilename, Filename
 
 
 class ChangeLogModel(BaseModel):
@@ -25,47 +27,12 @@ class MapConfigModel(BaseModel):
     (all config XML files live under config/, image assets under assets/).
     """
 
-    config_filename: str | None = None
-    vehicles_filename: str | None = None
-    placeables_filename: str | None = None
-    items_filename: str | None = None
+    config_filename: Filename = None
+    vehicles_filename: Filename = None
+    placeables_filename: Filename = None
+    items_filename: Filename = None
     description: str | None = None
-    preview_filename: str | None = None
-
-    @field_validator(
-        "config_filename",
-        "vehicles_filename",
-        "placeables_filename",
-        "items_filename",
-        mode="before",
-    )
-    @classmethod
-    def extract_filename(cls, value: str | None) -> str | None:
-        """
-        Strip any directory prefix from the modDesc path and return just
-        the filename.
-
-        E.g. 'maps/config/vehicles.xml' -> 'vehicles.xml'
-        """
-        if value is None:
-            return None
-        return value.split("/")[-1]
-
-    @field_validator("preview_filename", mode="before")
-    @classmethod
-    def extract_image_filename(cls, value: str | None) -> str | None:
-        """
-        Strip any directory prefix and normalise the extension.
-        modDesc.xml sometimes lists images as '.png', but the actual file
-        extracted into the bucket is always .dds.
-
-        E.g. 'icons/preview.png' -> 'preview.dds'
-        """
-        if value is None:
-            return None
-        filename = value.split("/")[-1]
-        stem = filename.rsplit(".", 1)[0]
-        return f"{stem}.dds"
+    preview_filename: DDSFilename = None
 
 
 class ModDescModel(BaseModel):
@@ -79,25 +46,9 @@ class ModDescModel(BaseModel):
     title: str | None = None
     description: str | None = None
     changelogs: list[ChangeLogModel] = Field(default_factory=list)
-    icon_filename: str | None = None
+    icon_filename: DDSFilename = None
     map_config: MapConfigModel | None = None
     dependencies: list[str] = Field(default_factory=list)
-
-    @field_validator("icon_filename", mode="before")
-    @classmethod
-    def extract_filename(cls, value: str | None) -> str | None:
-        """
-        Strip any directory prefix and normalise the extension.
-        modDesc.xml sometimes lists the icon as .png but the actual file
-        extracted into the bucket is always .dds.
-
-        e.g. 'icons/icon_FS25_Le_Mechet.png' -> 'icon_FS25_Le_Mechet.dds'
-        """
-        if value is None:
-            return None
-        filename = value.split("/")[-1]
-        stem = filename.rsplit(".", 1)[0]
-        return f"{stem}.dds"
 
 
 class DependencyResponse(BaseModel):

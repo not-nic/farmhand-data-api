@@ -10,7 +10,7 @@ from botocore.exceptions import ClientError
 from fastapi import APIRouter, HTTPException, Query, status
 
 from src.api.core.dependencies import SessionDep
-from src.api.core.schema.assets.assets import ResolvedAssetResponse
+from src.api.core.schema.assets import ResolvedAssetResponse
 from src.api.services.assets.assets_service import AssetsService
 
 router = APIRouter(prefix="/assets", tags=["Assets"])

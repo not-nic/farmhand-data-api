@@ -27,7 +27,10 @@ class ModDescriptionRepository(Repository[ModDescription]):
 
     def upsert(self, map_id: int, **kwargs) -> ModDescription:
         """
-        Create or update a ModDescription for the given map_id.
+        Upsert a mod description with new or updated data.
+        :param map_id: (int) a given map to update.
+        :param kwargs: Additional arguments for the ModDescription model.
+        :return: A created or updated ModDescription model.
         """
         existing = self.get_by_map_id(map_id)
         if existing:

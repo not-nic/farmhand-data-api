@@ -37,6 +37,7 @@ class AssetRepository(Repository[Asset]):
         """
         Get assets registered but not yet converted and uploaded.
         :param entity_type: Optionally filter to a single entity type.
+        :return: List of assets that are not ingested.
         """
         query = self.db.query(self.model).filter(self.model.is_ingested.is_(False))
         if entity_type:
@@ -44,7 +45,11 @@ class AssetRepository(Repository[Asset]):
         return query.all()
 
     def mark_ingested(self, asset: Asset) -> Asset:
-        """Mark an asset as successfully converted and uploaded."""
+        """
+        Mark an asset as ingested.
+        :param asset: (Asset) a given asset to update.
+        :return: (Asset) the updated asset.
+        """
         return self.update(asset, is_ingested=True)
 
     def get_by_entity_and_type(

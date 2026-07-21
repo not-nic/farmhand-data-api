@@ -22,6 +22,7 @@ class MapRepository(Repository[Map]):
     def get_maps(self) -> list[Map]:
         """
         Get all maps with their related data for the API.
+        :return: (list) of maps.
         """
         return (
             self.db.query(self.model)

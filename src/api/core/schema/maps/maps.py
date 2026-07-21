@@ -7,7 +7,7 @@ from datetime import date
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from src.api.constants import FarmhandMapFilters
-from src.api.core.schema.assets.assets import AssetResponse
+from src.api.core.schema.assets import AssetResponse
 from src.api.core.schema.mods.mod_desc import (
     ChangeLogResponse,
     DependencyResponse,

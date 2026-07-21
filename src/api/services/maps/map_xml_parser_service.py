@@ -83,8 +83,7 @@ class MapXmlParserService:
 
     def parse_all_mod_descriptions(self) -> None:
         """
-        Parse all mod descriptions for each map that in S3
-        that has a 'data_uri'.
+        Parse all mod descriptions for each map that in S3 that have a 'data_uri'.
         """
         maps = self.map_service.get_maps_with_data_uri()
         pending = [m for m in maps if m.mod_description is None]
@@ -93,7 +92,7 @@ class MapXmlParserService:
             logger.debug("[MapXmlParserService]: All maps already have a ModDescription.")
             return
 
-        logger.info("[MapXmlParserService]: Parsing %d map(s).", len(pending))
+        logger.info("[MapXmlParserService]: Parsing %d map(s) modDesc.xml.", len(pending))
 
         for map_obj in pending:
             self.parse_map(map_obj)

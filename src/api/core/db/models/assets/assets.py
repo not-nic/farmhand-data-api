@@ -22,6 +22,7 @@ class Asset(SqlAlchemyBase):
         asset_type: The type of asset (icon, overview, preview, etc.).
         filename: Original filename retained for reference and re-processing.
         asset_uri: S3 URI of the converted asset in the assets bucket.
+        is_ingested: (bool) if the asset has been ingested and available to the assets bucket.
     """
 
     __tablename__ = "assets"
@@ -41,5 +42,10 @@ class Asset(SqlAlchemyBase):
     is_ingested: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False, index=True)
 
     __table_args__ = (
-        Index("ix_assets_entity", "entity_type", "entity_id"),
+        Index(
+            "ix_assets_entity",
+            "entity_type",
+            "entity_id",
+            "is_ingested"
+        ),
     )
