@@ -54,5 +54,5 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     """
     error = format_pydantic_errors(exc)
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, content=jsonable_encoder(error)
+        status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, content=jsonable_encoder(error)
     )
