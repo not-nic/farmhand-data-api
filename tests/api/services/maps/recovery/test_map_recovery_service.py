@@ -53,7 +53,7 @@ class TestReprocessStalledDownloads:
         )
 
     @pytest.fixture
-    async def active_downloading_map(self, map_service, map_model):
+    def active_downloading_map(self, map_service, map_model):
         """
         Fixture for a map 'DOWNLOADING' that updated recently and is not stalled.
         """
@@ -64,37 +64,37 @@ class TestReprocessStalledDownloads:
             ingestion_updated_at=datetime.now() - timedelta(minutes=2),
         )
 
-    async def test_resets_stalled_map_to_pending(
+    def test_resets_stalled_map_to_pending(
         self, map_service, map_recovery_service, stalled_map
     ):
         """
         Test that a map stuck at DOWNLOADING beyond the threshold is reset to PENDING.
         """
-        await map_recovery_service.retry_stalled_downloads()
+        map_recovery_service.retry_stalled_downloads()
 
         updated = map_service.get_map_by_id(stalled_map.id)
         assert updated.ingestion_status == IngestionStatus.PENDING
 
-    async def test_records_error_message_on_reset(
+    def test_records_error_message_on_reset(
         self, map_service, map_recovery_service, stalled_map
     ):
         """
         Test that a stalled map has an ingestion_error when reset.
         """
-        await map_recovery_service.retry_stalled_downloads()
+        map_recovery_service.retry_stalled_downloads()
 
         updated = map_service.get_map_by_id(stalled_map.id)
         assert updated.ingestion_error is not None
         assert "DOWNLOADING" in updated.ingestion_error
 
-    async def test_does_not_reset_active_downloading_map(
+    def test_does_not_reset_active_downloading_map(
         self, map_service, map_recovery_service, active_downloading_map
     ):
         """
         test that a map currently 'DOWNLOADING' is left in progress and is
         not reset.
         """
-        await map_recovery_service.retry_stalled_downloads()
+        map_recovery_service.retry_stalled_downloads()
 
         updated = map_service.get_map_by_id(active_downloading_map.id)
         assert updated.ingestion_status == IngestionStatus.DOWNLOADING
@@ -106,7 +106,7 @@ class TestReprocessStalledDownloads:
         IngestionStatus.EXTRACTED,
         IngestionStatus.FAILED,
     ])
-    async def test_does_not_affect_maps_in_other_statuses(
+    def test_does_not_affect_maps_in_other_statuses(
         self, map_service, map_recovery_service, map_model, status
     ):
         """
@@ -120,14 +120,14 @@ class TestReprocessStalledDownloads:
             ingestion_updated_at=datetime.now(UTC) - timedelta(hours=2),
         )
 
-        await map_recovery_service.retry_stalled_downloads()
+        map_recovery_service.retry_stalled_downloads()
 
         updated = map_service.get_map_by_id(map_obj.id)
         assert updated.ingestion_status == status
 
-    async def test_no_stalled_maps_does_nothing(self, map_service, map_recovery_service):
+    def test_no_stalled_maps_does_nothing(self, map_service, map_recovery_service):
         """
         test that when there are no stalled maps, nothing is returned.
         """
-        await map_recovery_service.retry_stalled_downloads()
+        map_recovery_service.retry_stalled_downloads()
         assert map_service.get_maps() == []

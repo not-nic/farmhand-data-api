@@ -26,7 +26,7 @@ class MapRecoveryService:
     def __init__(self, db: Session, map_service: MapService | None = None):
         self.map_service = map_service or MapService(db)
 
-    async def retry_stalled_downloads(self) -> None:
+    def retry_stalled_downloads(self) -> None:
         """
         Reset maps stuck in the DOWNLOADING ingestion status back to
         pending so that the next cycle downloads them.

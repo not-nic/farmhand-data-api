@@ -54,14 +54,14 @@ def parse_map_xml() -> None:
         MapXmlParserService(db=db).parse_all_mod_descriptions()
 
 
-async def retry_stalled_downloads() -> None:
+def retry_stalled_downloads() -> None:
     """
     Background task to reset maps that have been stuck in a DOWNLOADING
     state.
     """
     with db_session() as db:
         logger.debug("[MAP TASKS]: Checking for stalled downloads to retry.")
-        await MapIngestionService(db=db).reprocess_stalled_downloads()
+        MapIngestionService(db=db).reprocess_stalled_downloads()
 
 
 def generate_map_assets() -> None:
