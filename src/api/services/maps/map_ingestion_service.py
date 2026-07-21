@@ -113,9 +113,9 @@ class MapIngestionService:
 
         logger.info("All %d map(s) downloaded.", len(pending_maps))
 
-    async def reprocess_stalled_downloads(self) -> None:
+    def reprocess_stalled_downloads(self) -> None:
         """Reset maps stalled at DOWNLOADING back to PENDING."""
-        await self.recovery_service.retry_stalled_downloads()
+        self.recovery_service.retry_stalled_downloads()
 
     def extract_files_from_maps(self) -> None:
         """

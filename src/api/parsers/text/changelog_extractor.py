@@ -60,7 +60,7 @@ class ChangelogExtractor:
 
         boundaries = [*header_indices, len(lines)]
 
-        for start, end in zip(boundaries, boundaries[1:], strict=True):
+        for start, end in zip(boundaries, boundaries[1:], strict=False):
             block = lines[start:end]
 
             version = self._extract_version(block[0])
