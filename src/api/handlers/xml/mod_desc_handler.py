@@ -4,6 +4,7 @@ Handler for Farming Simulator modDesc.xml files.
 Fetches, parses, and persists modDesc.xml data including the mod description,
 map description, config file paths, icon and preview assets, and mod dependencies.
 """
+from time import perf_counter
 
 from sqlalchemy.orm import Session
 
@@ -46,19 +47,25 @@ class ModDescHandler(BaseXmlHandler[ModDescModel]):
         """
         if not map_obj.data_uri:
             logger.warning(
-                "[ModDesc-Handler]: Skipping '%s' (%d) — no data_uri.",
+                "[ModDesc-Handler]: Skipped '%s' (%d) — no data_uri.",
                 map_obj.name,
                 map_obj.id,
             )
             return
 
-        logger.info("[ModDesc-Handler]: Processing '%s' (%d).", map_obj.name, map_obj.id)
+        logger.debug("[ModDesc-Handler]: Processing '%s' (%d).", map_obj.name, map_obj.id)
+        started = perf_counter()
 
         content = self._get(f"{map_obj.data_uri}/config/modDesc.xml")
         parsed: ModDescModel = ModDescXmlParser().parse(content)
         self._store(map_obj, parsed)
 
-        logger.info("[ModDesc-Handler]: Completed '%s' (%d).", map_obj.name, map_obj.id)
+        logger.info(
+            "[ModDesc-Handler]: Completed '%s' (%d) in %.2fs.",
+            map_obj.name,
+            map_obj.id,
+            perf_counter() - started,
+        )
 
     def _store(self, map_obj: Map, parsed: ModDescModel) -> None:
         """

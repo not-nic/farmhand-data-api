@@ -5,7 +5,7 @@ from pydantic import BaseModel
 
 
 class AlwaysIncludeModel(BaseModel):
-    overview: list[str]
+    assets: list[str]
     xml: list[str]
     grle_data: list[str]
     map: list[str]

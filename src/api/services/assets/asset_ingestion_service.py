@@ -39,17 +39,14 @@ class AssetIngestionService:
         if not pending:
             return
 
-        logger.info("[Asset-Ingestion]: Ingesting %d pending asset(s).", len(pending))
-
-        ingested_count: int = 0
+        ingested: list[int] = []
 
         for asset in pending:
             map_obj: Map = self.map_service.get_map_by_id(asset.entity_id)
             if not map_obj or not map_obj.data_uri:
                 logger.warning(
-                    "[Asset-Ingestion]: Skipping '%s' — map %d has no data_uri.",
-                    asset.filename,
-                    asset.entity_id,
+                    "[Asset-Ingestion]: Skipping map_id=%d filename='%s' — no data_uri.",
+                    asset.entity_id, asset.filename,
                 )
                 continue
 
@@ -58,20 +55,19 @@ class AssetIngestionService:
                     asset.entity_id, map_obj.data_uri, asset.filename
                 )
                 self.asset_repository.mark_ingested(asset)
-                ingested_count += 1
+                ingested.append(asset.entity_id)
             except ClientError as exc:
                 logger.error(
-                    "[Asset-Ingestion]: Failed to fetch '%s' for map %d from S3: %s",
-                    asset.filename, asset.entity_id, exc,
+                    "[Asset-Ingestion]: Failed to fetch map_id=%d filename='%s' from S3: %s",
+                    asset.entity_id, asset.filename, exc,
                 )
             except WandException as exc:
                 logger.error(
-                    "[Asset-Ingestion]: Failed to convert '%s' for map %d: %s",
-                    asset.filename, asset.entity_id, exc,
+                    "[Asset-Ingestion]: Failed to convert map_id=%d filename='%s': %s",
+                    asset.entity_id, asset.filename, exc,
                 )
 
         logger.info(
-            "[Asset-Ingestion]: %d/%d asset(s) ingested.",
-            ingested_count,
-            len(pending),
+            "[Asset-Ingestion]: %d/%d asset(s) ingested. map_ids=%s",
+            len(ingested), len(pending), ingested,
         )
