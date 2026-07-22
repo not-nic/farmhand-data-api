@@ -10,6 +10,8 @@ farmhand:
         - "ui/*.png"
         - "textures/ui/*.dds"
         - "textures/ui/*.png"
+        - "map[Ii]con*.dds"
+        - "map[Ii]con*.png"
       xml:
         - "config/*.xml"
         - "xml/*.xml" # Some maps (i.e. Pallegney) store XML in /xml
