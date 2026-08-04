@@ -35,54 +35,54 @@ async def reingest_mod(
         )
 
 
-@router.post("/parse-mod-desc/{map_id}", status_code=status.HTTP_202_ACCEPTED)
-async def parse_mod_desc_for_map(
-        map_id: int,
-        db: SessionDep,
-        background_tasks: BackgroundTasks,
+@router.post("/reingest", status_code=status.HTTP_202_ACCEPTED)
+async def reingest_all_mods(
+    db: SessionDep,
+    background_tasks: BackgroundTasks,
+    mod_type: Literal["map"] = Query(default="map", description="The type of mod to reingest."),
 ):
     """
-    (temp) Parse modDesc.xml for a single map by its ID.
-    :param map_id: The ModHub ID of the map to parse.
+    Endpoint to re-ingest every mod of the given type.
+
+    Resets each mod to PENDING rather than reprocessing sequentially,
+    letting the scheduled pipeline redrive them at its normal pace.
+    :param mod_type: The type of mod to reingest e.g. 'map'.
+    :param db: The database session dependency.
+    :param background_tasks: The Background tasks dependency.
     """
-    map_service = MapXmlParserService(db=db)
-    map_obj = map_service.map_service.get_map_by_id(map_id)
+    if mod_type == "map":
+        background_tasks.add_task(MapIngestionService(db=db).reingest_all_maps)
+        return {"message": "Started re-ingest for all maps"}
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"'{mod_type}' is not a valid mod_type."
+        )
+
+
+@router.post("/parse-xml/{mod_id}", status_code=status.HTTP_200_OK)
+async def parse_xml_for_map(
+    mod_id: int,
+    background_tasks: BackgroundTasks,
+    db: SessionDep
+):
+    """
+    (temp) Fetch and parse modDesc.xml and maps.xml directly from S3 for a
+    single map, returning both parsed models as raw JSON. Does not persist
+    anything — for inspecting parser output while testing.
+    :param mod_id: The ModHub ID of the mod to parse.
+    """
+    map_xml_parser = MapXmlParserService(db=db)
+    map_obj = map_xml_parser.map_service.get_map_by_id(mod_id)
 
     if not map_obj:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No map found with ID {map_id}.",
+            detail=f"No mod found with ID {mod_id}.",
         )
 
-    background_tasks.add_task(map_service.parse_map, map_obj)
-    return {"message": f"Started parsing modDesc.xml for map '{map_id}'"}
-
-
-@router.get("/extract", status_code=status.HTTP_200_OK)
-async def extract_files_from_maps(db: SessionDep, background_tasks: BackgroundTasks):
-    """
-    (temp) Extract files from all DOWNLOADED maps in a background task.
-    """
-    background_tasks.add_task(MapIngestionService(db=db).extract_files_from_maps)
-    return {"message": "Started extracting all DOWNLOADED maps"}
-
-
-@router.get("/download", status_code=status.HTTP_200_OK)
-async def download_pending_maps(db: SessionDep, background_tasks: BackgroundTasks):
-    """
-    (temp) Download all PENDING maps and store them in S3 in a background task.
-    """
-    background_tasks.add_task(MapIngestionService(db=db).download_pending_maps)
-    return {"message": "Started downloading all PENDING maps"}
-
-
-@router.get("/scrape", status_code=status.HTTP_200_OK)
-async def scrape_new_maps(db: SessionDep, background_tasks: BackgroundTasks):
-    """
-    (temp) Scrape ModHub for new maps and set them to PENDING in a background task.
-    """
-    background_tasks.add_task(MapIngestionService(db=db).get_new_maps)
-    return {"message": "Started scraping ModHub for new maps"}
+    background_tasks.add_task(map_xml_parser.parse_map, map_obj)
+    return {"message": f"Started parsing modDesc.xml for map '{mod_id}'"}
 
 
 @router.delete("/delete-extracted-files", status_code=status.HTTP_200_OK)

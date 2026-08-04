@@ -11,6 +11,7 @@ from botocore.exceptions import ClientError
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
+from src.api.constants import AssetType, EntityType
 from src.api.core.db.models import Map
 from src.api.core.logger import logger
 from src.api.services.assets.assets_service import AssetsService
@@ -78,3 +79,17 @@ class BaseXmlHandler[T: BaseModel](ABC):
                 exc,
             )
             raise
+
+    def _register_asset(self, map_obj: Map, filename: str, asset_type: AssetType) -> None:
+        """
+        Register an asset that needs to be created against a given map.
+        :param map_obj: The parent map.
+        :param filename: The original .dds filename from the XML.
+        :param asset_type: The type of asset (icon, preview, overview, etc.).
+        """
+        self.assets_service.register_asset_from_filename(
+            entity_id=map_obj.id,
+            entity_type=EntityType.MAP,
+            filename=filename,
+            asset_type=asset_type,
+        )

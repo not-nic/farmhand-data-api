@@ -28,7 +28,7 @@ async def get_maps(db: SessionDep) -> MapsResponse:
     try:
         maps = MapService(db).get_maps()
         return MapsResponse(
-            maps=[MapResponse.model_validate(m) for m in maps],
+            maps=[MapResponse.from_map(m) for m in maps],
             count=len(maps),
         )
     except ValueError as exc:
@@ -49,7 +49,7 @@ async def get_map_by_id(map_id: int, db: SessionDep) -> MapResponse:
         if not map_obj:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Map not found.")
 
-        return MapResponse.model_validate(map_obj)
+        return MapResponse.from_map(map_obj)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(exc))
 

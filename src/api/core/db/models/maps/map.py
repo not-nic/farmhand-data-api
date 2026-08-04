@@ -10,6 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
     from src.api.core.db.models.assets import Asset
+    from src.api.core.db.models.maps import MapInformation
     from src.api.core.db.models.mods import ChangeLog, Dependency, ModDescription
 
 from src.api.constants import IngestionStatus
@@ -75,4 +76,8 @@ class Map(SqlAlchemyBase):
 
     changelogs: Mapped[list[ChangeLog]] = relationship(
         "ChangeLog", back_populates="map", cascade="all, delete-orphan"
+    )
+
+    information: Mapped[MapInformation | None] = relationship(
+        "MapInformation", back_populates="map", uselist=False
     )

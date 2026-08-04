@@ -9,7 +9,7 @@ from wand.exceptions import WandException
 
 from src.api.constants import EntityType
 from src.api.core.config import settings
-from src.api.core.db.models import Map
+from src.api.core.db.models import Asset, Map
 from src.api.core.logger import logger
 from src.api.core.repositories.asset_repository import AssetRepository
 from src.api.services.assets.assets_service import AssetsService
@@ -32,7 +32,7 @@ class AssetIngestionService:
         Get pending map assets and convert them from a .dds into a .webp
         image that is accessible to the assets bucket.
         """
-        pending = self.asset_repository.get_pending(
+        pending: list[Asset] = self.asset_repository.get_pending(
             entity_type=EntityType.MAP
         )[:settings.MAX_ASSET_INGESTION_BATCH]
 
@@ -52,7 +52,9 @@ class AssetIngestionService:
 
             try:
                 self.assets_service.store_converted_image(
-                    asset.entity_id, map_obj.data_uri, asset.filename
+                    asset.entity_id,
+                    map_obj.data_uri,
+                    asset.filename
                 )
                 self.asset_repository.mark_ingested(asset)
                 ingested.append(asset.entity_id)

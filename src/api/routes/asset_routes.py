@@ -4,7 +4,7 @@ API Routes for resolving map asset URIs to pre-signed URLs.
 Routes:
     GET /assets/resolve?uri= - Resolve an S3 URI to a pre-signed URL.
 """
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from botocore.exceptions import ClientError
 from fastapi import APIRouter, HTTPException, Query, status
@@ -34,7 +34,10 @@ async def resolve_asset_uri(
 
     try:
         url = AssetsService(db).resolve_uri(uri, expiry_time)
-        return ResolvedAssetResponse(url=url, expires_at=datetime.now() + timedelta(seconds=expiry_time))
+        return ResolvedAssetResponse(
+            url=url,
+            expires_at=datetime.now(UTC) + timedelta(seconds=expiry_time)
+        )
     except ClientError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,

@@ -41,7 +41,7 @@ class ModDescription(SqlAlchemyBase):
 
     title: Mapped[str | None] = mapped_column(String(255), nullable=True)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    map_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    tagline: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     config_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
     vehicles_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)

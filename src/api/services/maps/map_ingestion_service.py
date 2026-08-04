@@ -143,9 +143,12 @@ class MapIngestionService:
 
         logger.info("Finished extraction for %d map(s).", len(downloaded_maps))
 
-    def advance_extracted_maps(self) -> None:
-        """Pick up every EXTRACTED map and parse its XML files."""
-        pass
+    def parse_map_xml(self) -> None:
+        """
+        Parse XML files for every EXTRACTED map that's ready, or any
+        previously FAILED map past its retry cooldown.
+        """
+        self.xml_parser_service.parse()
 
     def advance_parsed_maps(self) -> None:
         """Pick up every PARSED map, transfer assets, and mark it COMPLETE."""
@@ -189,6 +192,28 @@ class MapIngestionService:
         self._extract_map(map_obj)
 
         logger.info("Reingest complete for '%s' (%d).", map_obj.name, map_obj.id)
+
+    def reingest_all_maps(self) -> None:
+        """
+        Reset every map back to PENDING for the scheduled pipeline to retry.
+        """
+        maps = self.map_service.get_maps()
+
+        if not maps:
+            logger.info("No maps found to reingest.")
+            return
+
+        for map_obj in maps:
+            self.map_service.update_map(
+                map_obj,
+                ingestion_status=IngestionStatus.PENDING,
+                ingestion_error=None,
+                data_uri=None,
+            )
+
+        logger.info(
+            "Reset %d map(s) to PENDING.", len(maps)
+        )
 
     def _download_map(self, map_obj: Map) -> None:
         """

@@ -1,15 +1,10 @@
 """
 Handler for Farming Simulator modDesc.xml files.
-
-Fetches, parses, and persists modDesc.xml data including the mod description,
-map description, config file paths, icon and preview assets, and mod dependencies.
 """
-from time import perf_counter
 
 from sqlalchemy.orm import Session
 
-from src.api.constants import AssetType, EntityType
-from src.api.core.config import settings
+from src.api.constants import AssetType
 from src.api.core.db.models import Map
 from src.api.core.db.models.mods import ChangeLog
 from src.api.core.logger import logger
@@ -22,12 +17,10 @@ from src.api.services.assets.assets_service import AssetsService
 from src.api.services.aws.aws_service import AwsService
 
 
-class ModDescHandler(BaseXmlHandler[ModDescModel]):
+class ModDescHandler(BaseXmlHandler):
     """
-    Processes modDesc.xml for a map.
-
-    Persists the ModDescription record, creates ICON and PREVIEW assets,
-    and associates required mod dependencies with the map.
+    Handler class used for processing and persisting a mod description,
+    creating 'assets' used within a map or mod.
     """
 
     def __init__(
@@ -53,19 +46,9 @@ class ModDescHandler(BaseXmlHandler[ModDescModel]):
             )
             return
 
-        logger.debug("[ModDesc-Handler]: Processing '%s' (%d).", map_obj.name, map_obj.id)
-        started = perf_counter()
-
         content = self._get(f"{map_obj.data_uri}/config/modDesc.xml")
         parsed: ModDescModel = ModDescXmlParser().parse(content)
         self._store(map_obj, parsed)
-
-        logger.info(
-            "[ModDesc-Handler]: Completed '%s' (%d) in %.2fs.",
-            map_obj.name,
-            map_obj.id,
-            perf_counter() - started,
-        )
 
     def _store(self, map_obj: Map, parsed: ModDescModel) -> None:
         """
@@ -81,7 +64,7 @@ class ModDescHandler(BaseXmlHandler[ModDescModel]):
             map_id=map_obj.id,
             title=parsed.title,
             description=parsed.description,
-            map_description=config.description,
+            tagline=config.description,
             config_filename=config.config_filename,
             vehicles_filename=config.vehicles_filename,
             placeables_filename=config.placeables_filename,
@@ -125,29 +108,6 @@ class ModDescHandler(BaseXmlHandler[ModDescModel]):
         config = parsed.map_config or MapConfigModel()
         if config.preview_filename:
             self._register_asset(map_obj, config.preview_filename, AssetType.PREVIEW)
-
-    def _register_asset(self, map_obj: Map, filename: str, asset_type: AssetType) -> None:
-        """
-        Build the converted asset's target URI and register it against the map.
-
-        :param map_obj: The parent map.
-        :param filename: The original .dds filename from modDesc.xml.
-        :param asset_type: The type of asset (icon, preview, etc.).
-        """
-        converted_filename = self.assets_service.image_converter.convert_filename(
-            filename, self.assets_service.OUTPUT_FORMAT
-        )
-        asset_uri = self.assets_service.build_asset_uri(
-            map_obj.id, converted_filename, settings.AWS_S3_ASSETS_BUCKET_NAME
-        )
-
-        self.assets_service.register_asset(
-            entity_id=map_obj.id,
-            entity_type=EntityType.MAP,
-            asset_type=asset_type,
-            filename=filename,
-            asset_uri=asset_uri,
-        )
 
     def _associate_dependencies(self, map_obj: Map, parsed: ModDescModel) -> None:
         """

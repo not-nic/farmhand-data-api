@@ -31,6 +31,7 @@ class MapRepository(Repository[Map]):
                 joinedload(self.model.dependencies),
                 joinedload(self.model.assets),
                 joinedload(self.model.changelogs),
+                joinedload(self.model.information)
             )
             .all()
         )

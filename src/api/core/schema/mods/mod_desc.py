@@ -77,7 +77,7 @@ class ModDescriptionResponse(BaseModel):
     """
 
     description: str | None = None
-    map_description: str | None = None
+    tagline: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
