@@ -17,8 +17,8 @@ from src.api.services.aws.aws_service import AwsService
 
 class MapsXmlHandler(BaseXmlHandler[MapsXmlModel]):
     """
-    Handler class used for processing and persisting a map XML file, creating 'assets'
-    used within a map or mod.
+    Handler class used for processing, persisting a farming simulator mod map 'maps.xml'
+    file, and creating the overview.dds map asset.
     """
 
     def __init__(
@@ -32,7 +32,7 @@ class MapsXmlHandler(BaseXmlHandler[MapsXmlModel]):
 
     def process(self, map_obj: Map) -> None:
         """
-        Get, parse, and persist maps.xml for the given map.
+        Get, parse, and persist a maps.xml for the given map.
         :param map_obj: The map to process.
         """
         if not map_obj.data_uri:
@@ -59,7 +59,7 @@ class MapsXmlHandler(BaseXmlHandler[MapsXmlModel]):
 
     def _store(self, map_obj: Map, parsed: MapsXmlModel) -> None:
         """
-        Persist all data extracted from maps.xml and upsert this to the database.,
+        Persist all data extracted from a maps.xml file.
 
         :param map_obj: The parent map.
         :param parsed: The parsed MapsXmlModel.

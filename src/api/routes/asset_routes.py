@@ -36,7 +36,8 @@ async def resolve_asset_uri(
         url = AssetsService(db).resolve_uri(uri, expiry_time)
         return ResolvedAssetResponse(
             url=url,
-            expires_at=datetime.now(UTC) + timedelta(seconds=expiry_time))
+            expires_at=datetime.now(UTC) + timedelta(seconds=expiry_time)
+        )
     except ClientError as exc:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
