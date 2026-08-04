@@ -6,7 +6,6 @@ from src.api.core.db.db_setup import db_session
 from src.api.core.logger import logger
 from src.api.services.assets.asset_ingestion_service import AssetIngestionService
 from src.api.services.maps.map_ingestion_service import MapIngestionService
-from src.api.services.maps.map_xml_parser_service import MapXmlParserService
 
 
 async def get_new_maps() -> None:
@@ -46,12 +45,11 @@ def extract_files_from_maps() -> None:
 
 def parse_map_xml() -> None:
     """
-    Background task to parse modDesc.xml for all maps that have extracted
-    files in S3 but do not yet have a ModDescription record.
+    Background task to parse XML for all maps that have extracted.
     """
     with db_session() as db:
         logger.debug("[MAP TASKS]: Parsing Map XML for extracted maps.")
-        MapXmlParserService(db=db).parse_all_mod_descriptions()
+        MapIngestionService(db=db).parse_map_xml()
 
 
 def retry_stalled_downloads() -> None:

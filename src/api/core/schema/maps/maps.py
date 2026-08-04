@@ -7,11 +7,11 @@ from datetime import date
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from src.api.constants import FarmhandMapFilters
+from src.api.core.db.models import Map
 from src.api.core.schema.assets import AssetResponse
 from src.api.core.schema.mods.mod_desc import (
     ChangeLogResponse,
     DependencyResponse,
-    ModDescriptionResponse,
 )
 
 
@@ -72,12 +72,51 @@ class MapResponse(BaseModel):
     author: str
     release_date: date
     version: str
-    mod_description: ModDescriptionResponse | None = None
+    description: str | None = None
+    tagline: str | None = None
     dependencies: list[DependencyResponse] = []
-    changelogs: list[ChangeLogResponse] = []
     assets: list[AssetResponse] = []
+    changelogs: list[ChangeLogResponse] = []
+    width: int | None = None
+    height: int | None = None
 
-    model_config = ConfigDict(from_attributes=True, arbitrary_types_allowed=True)
+    model_config = ConfigDict(arbitrary_types_allowed=True)
+
+    @classmethod
+    def from_map(cls, map_obj: Map) -> MapResponse:
+        """
+        Create a pydantic model from a map database object.
+        :param map_obj: A given map database object.
+        :return: A re-structured map pydantic model.
+        """
+        description: str | None = map_obj.mod_description.description if map_obj.mod_description else None
+        tagline: str | None = map_obj.mod_description.tagline if map_obj.mod_description else None
+        width: int | None = map_obj.information.width if map_obj.information else None
+        height: int | None = map_obj.information.height if map_obj.information else None
+
+        dependencies: list[DependencyResponse] = [
+            DependencyResponse.model_validate(d) for d in map_obj.dependencies
+        ]
+        assets: list[AssetResponse] = [AssetResponse.model_validate(a) for a in map_obj.assets]
+        changelogs: list[ChangeLogResponse] = [
+            ChangeLogResponse.model_validate(c) for c in map_obj.changelogs
+        ]
+
+        return cls(
+            id=map_obj.id,
+            name=map_obj.name,
+            category=FarmhandMapFilters(map_obj.category),
+            author=map_obj.author,
+            release_date=map_obj.release_date,
+            version=map_obj.version,
+            description=description,
+            tagline=tagline,
+            dependencies=dependencies,
+            assets=assets,
+            changelogs=changelogs,
+            width=width,
+            height=height,
+        )
 
 
 class MapsResponse(BaseModel):
@@ -98,3 +137,14 @@ class MapUploadResponse(BaseModel):
 
     id: int
     url: str
+
+
+class MapInformationResponse(BaseModel):
+    """
+    Pydantic response model for a map's parsed maps.xml information.
+    """
+
+    width: int | None = None
+    height: int | None = None
+
+    model_config = ConfigDict(from_attributes=True)

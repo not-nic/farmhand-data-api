@@ -40,6 +40,35 @@ class AssetsService:
             endpoint_url=settings.MINIO_PUBLIC_ENDPOINT_URL,
         )
 
+    def register_asset_from_filename(
+            self,
+            entity_id: int,
+            entity_type: EntityType,
+            filename: str,
+            asset_type: AssetType,
+    ) -> Asset:
+        """
+        Convert a raw .dds filename to its target output format, and build
+        its S3 URI and register an asset for ingestion.
+        :param entity_id: The ID of the owning entity.
+        :param entity_type: The type of entity (map, vehicle, etc.).
+        :param filename: The original .dds filename from the XML.
+        :param asset_type: The type of asset (icon, preview, overview, etc.).
+        :return: The created or updated Asset.
+        """
+        converted_filename = self.image_converter.convert_filename(filename, self.OUTPUT_FORMAT)
+        asset_uri = self.build_asset_uri(
+            entity_id, converted_filename, settings.AWS_S3_ASSETS_BUCKET_NAME
+        )
+
+        return self.register_asset(
+            entity_id=entity_id,
+            entity_type=entity_type,
+            asset_type=asset_type,
+            filename=filename,
+            asset_uri=asset_uri,
+        )
+
     def ingest_asset(
             self,
             entity_id: int,
@@ -173,7 +202,7 @@ class AssetsService:
         :param expiration_time: (int) The time in seconds for the pre-signed URL to expire.
         :return: (str) Pre-signed URL resolvable by the client.
         """
-        logger.info("[Assets Service]: Resolving URI '%s'.", uri)
+        logger.debug("[Assets Service]: Resolving URI '%s'.", uri)
         return self.public_url_signer.generate_pre_signed_url(
             key_from_s3_uri(uri),
             "get_object",

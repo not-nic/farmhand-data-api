@@ -37,6 +37,7 @@ base_scheduler.add_job(JobModel(
     name="Download PENDING maps to S3",
     group="pipeline",
     executor="downloads",
+    enabled=False
 ))
 
 
@@ -49,6 +50,7 @@ base_scheduler.add_job(JobModel(
     id="extract_files_from_maps",
     name="Extract files from DOWNLOADED maps",
     group="pipeline",
+    enabled=True
 ))
 
 
@@ -58,6 +60,7 @@ base_scheduler.add_job(JobModel(
     id="parse_map_xml",
     name="Parse modDesc.xml for extracted maps",
     group="pipeline",
+    enabled=True
 ))
 
 
@@ -67,6 +70,7 @@ base_scheduler.add_job(JobModel(
     id="retry_stalled_downloads",
     name="Reset stalled DOWNLOADING maps back to PENDING",
     group="recovery",
+    enabled=False
 ))
 
 

@@ -16,12 +16,16 @@ farmhand:
         - "config/*.xml"
         - "xml/*.xml" # Some maps (i.e. Pallegney) store XML in /xml
         - "xmlFiles/*.xml"
+        - "maps/*.xml"
+        - "map.xml"
+        - "map*.xml"
+        - "CYLNH.xml" # required for specific map 'Castile And Leon'
       grle_data:
         - "data/*.grle"
       map:
         - "map.i3d"
-        - "mapEU.i3d"
-        - "mapDE.i3d"
+        - "map*.i3d"
+        - "map_*.i3d"
       mod:
         - "modDesc.xml"
         - "icon_*.dds"
