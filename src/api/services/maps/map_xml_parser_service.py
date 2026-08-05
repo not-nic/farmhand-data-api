@@ -61,26 +61,28 @@ class MapXmlParserService:
 
         :param map_obj: The map to parse.
         """
-        started: float = perf_counter()
+        started = perf_counter()
         errors: list[str] = []
-
-        error_labels: dict = {
-            ClientError: "S3 fetch failed",
-            ParseError: "Invalid XML",
-            ValidationError: "Validation failed",
-        }
 
         for handler in self.handlers:
             try:
                 handler.process(map_obj)
-            except tuple(error_labels) as exc:
-                label = error_labels[type(exc)]
-                message = f"{label} in {handler.name}: {exc}"
+            except ClientError as exc:
+                message = f"S3 fetch failed in {handler.name}: {exc}"
                 logger.error(
-                    "[MapXmlParserService]: %s for '%s' (%d).",
-                    message,
-                    map_obj.name,
-                    map_obj.id,
+                    "[MapXmlParserService]: %s for '%s' (%d).", message, map_obj.name, map_obj.id
+                )
+                errors.append(message)
+            except ParseError as exc:
+                message = f"Invalid XML in {handler.name}: {exc}"
+                logger.error(
+                    "[MapXmlParserService]: %s for '%s' (%d).", message, map_obj.name, map_obj.id
+                )
+                errors.append(message)
+            except ValidationError as exc:
+                message = f"Validation failed in {handler.name}: {exc}"
+                logger.error(
+                    "[MapXmlParserService]: %s for '%s' (%d).", message, map_obj.name, map_obj.id
                 )
                 errors.append(message)
 
