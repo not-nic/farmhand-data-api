@@ -12,6 +12,8 @@ farmhand:
         - "textures/ui/*.png"
         - "map[Ii]con*.dds"
         - "map[Ii]con*.png"
+        - "PDA.dds"
+        - "PDA.png"
       xml:
         - "config/*.xml"
         - "xml/*.xml" # Some maps (i.e. Pallegney) store XML in /xml
