@@ -20,7 +20,7 @@ base_scheduler = Scheduler()
 
 base_scheduler.add_job(JobModel(
     func=get_new_maps,
-    trigger=CronTrigger(day_of_week="mon-fri", hour=14, minute=0),
+    trigger=CronTrigger(day_of_week="mon-fri", hour=14, minute=30),
     id="get_new_maps",
     name="Scrape ModHub for new Farming Simulator maps",
     group="discovery",
