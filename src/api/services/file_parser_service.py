@@ -210,13 +210,16 @@ class FileParserService:
     def _should_keep(self, relative_path: Path) -> bool:
         """
         Allowlist check: keep the file if it matches an always_include pattern,
-        is a map i3d by location, or lives under a known extra_content directory.
+        is a map i3d or map config XML by location, or lives under a known
+        extra_content directory.
         """
         if relative_path.name in self._excluded_files:
             return False
         if any(relative_path.match(p) for p in self._include_patterns):
             return True
         if self._is_map_i3d(relative_path):
+            return True
+        if self._is_map_xml(relative_path):
             return True
         parts_lower = [p.lower() for p in relative_path.parts]
         return any(ec in parts_lower for ec in self._extra_content_lower)
@@ -253,14 +256,45 @@ class FileParserService:
     @staticmethod
     def _is_map_i3d(relative_path: Path) -> bool:
         """
-        Detect map .i3d files that use the mod name instead of map.i3d, mapEU.i3d, etc.
-        Example:
-            maps/mechet.i3d
-            maps/Hermannshausenmap.i3d
+        Detect a map's .i3d file across different conventions used by modders.
+
+        At the root of an archive in a flat structure, alongside a file like
+        modDesc.xml.
+
+        Anywhere in a subdirectory e.g. maps, at any depths, e.g. maps/my_map.i3d
+        or maps/my_map/my_map.i3d.
+
         :param relative_path: (Path) the path of the item to check.
-        :return: (bool) if the map uses the mod name instead of map.i3d.
+        :return: (bool) if this is the map's own config XML file.
         """
-        return (
-                relative_path.suffix.lower() == ".i3d"
-                and relative_path.parent.name.lower() == "maps"
-        )
+        if relative_path.suffix.lower() != ".i3d":
+            return False
+
+        if len(relative_path.parts) == 1:
+            return True
+
+        parts_lower = [p.lower() for p in relative_path.parts]
+        return "maps" in parts_lower
+
+    @staticmethod
+    def _is_map_xml(relative_path: Path) -> bool:
+        """
+        Detect a map's config XML file across different conventions used by modders.
+
+        At the root of an archive in a flat structure, alongside a file like
+        modDesc.xml.
+
+        Anywhere in a subdirectory e.g. maps, at any depths, e.g. maps/my_map.xml
+        or maps/my_map/my_map.xml.
+
+        :param relative_path: (Path) the path of the item to check.
+        :return: (bool) if this is the map's own config XML file.
+        """
+        if relative_path.suffix.lower() != ".xml":
+            return False
+
+        if len(relative_path.parts) == 1:
+            return True
+
+        parts_lower = [p.lower() for p in relative_path.parts]
+        return "maps" in parts_lower
