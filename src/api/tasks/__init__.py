@@ -1,79 +1,8 @@
 """
-Python module containing scheduler jobs definitions.
+__init__.py for the /tasks package. Importing this module registers every
+job defined in job_registry.py with the base_scheduler singleton.
 """
-from datetime import UTC, datetime, timedelta
 
-from apscheduler.triggers.cron import CronTrigger
-from apscheduler.triggers.interval import IntervalTrigger
+from src.api.tasks.job_registry import base_scheduler
 
-from src.api.tasks.map_tasks import (
-    download_pending_maps,
-    extract_files_from_maps,
-    generate_map_assets,
-    get_new_maps,
-    parse_map_xml,
-    retry_stalled_downloads,
-)
-from src.api.tasks.scheduler import JobModel, Scheduler
-
-base_scheduler = Scheduler()
-
-base_scheduler.add_job(JobModel(
-    func=get_new_maps,
-    trigger=CronTrigger(hour=14, minute=30),
-    id="get_new_maps",
-    name="Scrape ModHub for new Farming Simulator maps",
-    group="discovery",
-))
-
-
-base_scheduler.add_job(JobModel(
-    func=download_pending_maps,
-    trigger=IntervalTrigger(
-        minutes=10,
-        start_date=datetime.now(UTC) + timedelta(minutes=1),
-    ),
-    id="download_pending_maps",
-    name="Download PENDING maps to S3",
-    group="pipeline",
-    executor="downloads",
-))
-
-
-base_scheduler.add_job(JobModel(
-    func=extract_files_from_maps,
-    trigger=IntervalTrigger(
-        minutes=1,
-        start_date=datetime.now(UTC) + timedelta(minutes=1),
-    ),
-    id="extract_files_from_maps",
-    name="Extract files from DOWNLOADED maps",
-    group="pipeline",
-))
-
-
-base_scheduler.add_job(JobModel(
-    func=parse_map_xml,
-    trigger=IntervalTrigger(minutes=1),
-    id="parse_map_xml",
-    name="Parse modDesc.xml for extracted maps",
-    group="pipeline",
-))
-
-
-base_scheduler.add_job(JobModel(
-    func=retry_stalled_downloads,
-    trigger=CronTrigger(minute=0),
-    id="retry_stalled_downloads",
-    name="Reset stalled DOWNLOADING maps back to PENDING",
-    group="recovery",
-))
-
-
-base_scheduler.add_job(JobModel(
-    func=generate_map_assets,
-    trigger=IntervalTrigger(minutes=2),
-    id="generate_map_assets",
-    name="Convert and upload pending map assets",
-    group="pipeline",
-))
+__all__ = ["base_scheduler"]
