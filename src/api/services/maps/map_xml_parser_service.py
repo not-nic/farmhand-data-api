@@ -86,7 +86,14 @@ class MapXmlParserService:
                 )
                 errors.append(message)
 
-        self._update_ingestion_result(map_obj, errors, started)
+        self._update_ingestion_result(map_obj, errors)
+
+        logger.info(
+            "[MapXmlParserService]: Completed parsing all XML for '%s' (%d) in %.2fs.",
+            map_obj.name,
+            map_obj.id,
+            perf_counter() - started,
+        )
 
     def parse(self) -> None:
         """
@@ -126,7 +133,6 @@ class MapXmlParserService:
             self,
             map_obj: Map,
             errors: list[str],
-            started: float
     ) -> None:
         """
         Mark the map as failed if any handlers report an error when parsing
@@ -134,14 +140,15 @@ class MapXmlParserService:
 
         :param map_obj: The map whose ingestion status is being recorded.
         :param errors: Error messages collected from handler failures, if any.
-        :param started: The perf_counter() timestamp when parsing began, used
-                        to compute elapsed time for the success log message.
         """
+        now: datetime = datetime.now()
+
         if errors:
             self.map_service.update_map(
                 map_obj,
                 ingestion_status=IngestionStatus.FAILED,
                 ingestion_error="; ".join(errors),
+                ingestion_updated_at=now
             )
             logger.error(
                 "[MapXmlParserService]: Marked '%s' (%d) as FAILED after %d handler error(s).",
@@ -155,11 +162,5 @@ class MapXmlParserService:
             map_obj,
             ingestion_status=IngestionStatus.PARSED,
             ingestion_error=None,
-        )
-
-        logger.info(
-            "[MapXmlParserService]: Completed parsing all XML for '%s' (%d) in %.2fs.",
-            map_obj.name,
-            map_obj.id,
-            perf_counter() - started,
+            ingestion_updated_at=now
         )
