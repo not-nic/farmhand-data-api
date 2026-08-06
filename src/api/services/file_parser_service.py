@@ -29,13 +29,25 @@ class ExtractedZip:
     temp_dir: TemporaryDirectory
 
 
+@dataclass(frozen=True)
+class ContentOverride:
+    """
+    A dataclass defining the new file location of a file in a Farming
+    Simulator Mod, e.g. '/foliage -> extra/crops/... and a boolean
+    to check whether only its primary XML file should be kept.
+    """
+
+    target: str
+    xml_only: bool = False
+
+
 class FileParserService:
     """
     Python service to extract files from a Farming Simulator mod .zip archive and
     restructures them into a standardised farmhand directory layout.
 
     Filtering is based on an allowlist defined in config/application.yml; a file
-    is kept on a glob pattern of if it lives under a known extra_context directory.
+    is kept on a glob pattern of if it lives under a known extra_content directory.
 
     Anything not explicitly wanted is discarded.
     """
@@ -48,7 +60,11 @@ class FileParserService:
     }
 
     FALLBACK_DIRECTORY = "unused"
-    EXTRA_ASSET_DIRS: set = {"sounds", "textures", "models", "effects", "particles"}
+    ASSET_SUBDIRECTORY_NAMES: set[str] = {"sounds", "textures", "models", "effects", "particles"}
+    CONTENT_OVERRIDES: dict[str, ContentOverride] = {
+        "foliage": ContentOverride(target="extra/crops", xml_only=True),
+        "huds": ContentOverride(target="assets/icons"),
+    }
 
     def __init__(
         self,
@@ -63,6 +79,28 @@ class FileParserService:
         self._include_patterns: list[str] = self.filters.always_include.flatten()
         self._extra_content_lower: set[str] = {e.lower() for e in self.extra_content}
         self._excluded_files: set[str] = set(self.filters.excluded_files)
+        self._xml_only_names_lower: set[str] = {
+            name.lower()
+            for name, override in self.CONTENT_OVERRIDES.items()
+            if override.xml_only
+        }
+
+    def process(self, filename: str) -> ExtractedZip:
+        """
+        Process a Farming Simulator Mod Map into a restructured directory.
+
+        :param filename: Path to the .zip to extract.
+        :return: ExtractedZip with the final, filtered set of files.
+        :raises FileNotFoundError: If the zip does not exist.
+        :raises BadZipFile: If the file is not a valid zip archive.
+        :raises PermissionError: If the file cannot be read.
+        """
+        extracted = self.extract_zip(filename)
+        files = self.restructure_files(extracted.files, extracted.root_dir)
+        files = self.remove_unwanted_extras(files, extracted.root_dir)
+        files = self.filter_extra_content(files, extracted.root_dir)
+
+        return ExtractedZip(files=files, root_dir=extracted.root_dir, temp_dir=extracted.temp_dir)
 
     def extract_zip(self, filename: str) -> ExtractedZip:
         """
@@ -97,11 +135,9 @@ class FileParserService:
 
     def restructure_files(self, files: list[Path], root_dir: Path) -> list[Path]:
         """
-        Copy each kept file into the farmhand directory layout under the root_dir.
-        Extra-Content files are preserved under an /extra root, with their sub-path
-        maintained.
+        Copy each kept file into the farmhand directory layout under root_dir.
 
-        :param files: Filtered files are returned by extract_zip.
+        :param files: Filtered files returned by extract_zip.
         :param root_dir: Root of the extracted mod.
         :return: List of paths in their new restructured locations.
         """
@@ -130,17 +166,18 @@ class FileParserService:
 
     def remove_unwanted_extras(self, files: list[Path], root_dir: Path) -> list[Path]:
         """
-        Post-process the 'filtered' files and remove any /extras that has context
-        which are not defined in the extra_context allowlist.
-
-        Call this after restructure_files and before uploading to S3 to catch
-        anything that slipped through (e.g. a directory in the zip that matched
-        an old extra_content entry now removed from config).
+        Remove any extra/ content whose directory is no longer in extra_content.
 
         :param files: Restructured file paths from restructure_files.
         :param root_dir: Root directory used to compute relative paths.
         :return: Cleaned file list with unwanted extras removed.
         """
+        special_extra_roots = {
+            override.target.split("/", 1)[1].split("/")[0]
+            for override in self.CONTENT_OVERRIDES.values()
+            if override.target.startswith("extra/")
+        }
+
         kept: list = []
         removed: list = []
         for file in files:
@@ -148,6 +185,7 @@ class FileParserService:
             if (
                 len(parts) >= 2
                 and parts[0] == "extra"
+                and parts[1] not in special_extra_roots
                 and parts[1].lower() not in self._extra_content_lower
             ):
                 removed.append(file)
@@ -164,17 +202,18 @@ class FileParserService:
 
     def filter_extra_content(self, files: list[Path], root_dir: Path) -> list[Path]:
         """
-        Post-process the /extra directories file and keep only the primary XML file
-        for each item and attempt to discard textures, sounds, meshes, and other assets.
-
-        Example:
-            extra/vehicles/claasAxion800/axion800.xml is attempted to be kept, Anything deeper
-            (sounds/, subfolders) or anything without a non-XML extension is dropped.
+        Reduce extra/ content down to the primary XML file per item.
 
         :param files: Restructured file list from restructure_files.
         :param root_dir: Root directory used to compute relative paths.
         :return: Cleaned file list.
         """
+        xml_only_roots = {
+            override.target.split("/")[-1]
+            for override in self.CONTENT_OVERRIDES.values()
+            if override.xml_only
+        }
+
         kept, removed = [], []
 
         for file in files:
@@ -185,15 +224,18 @@ class FileParserService:
                 kept.append(file)
                 continue
 
-            # Drop anything that isn't XML regardless of depth.
+            if len(parts) >= 2 and parts[1] in xml_only_roots:
+                if file.suffix.lower() == ".xml":
+                    kept.append(file)
+                else:
+                    removed.append(file)
+                continue
+
             if file.suffix.lower() != ".xml":
                 removed.append(file)
                 continue
 
-            # Drop XMLs that live inside a known asset subfolder at any depth.
-            # extra/vehicles/claas/Axion800/sounds/axion800.xml → "sounds" in parts → drop
-            # extra/vehicles/claas/Axion800/axion800.xml → no asset dir in parts → keep
-            if any(part.lower() in self.EXTRA_ASSET_DIRS for part in parts):
+            if any(part.lower() in self.ASSET_SUBDIRECTORY_NAMES for part in parts):
                 removed.append(file)
             else:
                 kept.append(file)
@@ -208,20 +250,21 @@ class FileParserService:
         return kept
 
     def _should_keep(self, relative_path: Path) -> bool:
-        """
-        Allowlist check: keep the file if it matches an always_include pattern,
-        is a map i3d or map config XML by location, or lives under a known
-        extra_content directory.
-        """
+        """Allowlist check for a single extracted file."""
         if relative_path.name in self._excluded_files:
             return False
         if any(relative_path.match(p) for p in self._include_patterns):
             return True
-        if self._is_map_i3d(relative_path):
+        if self._uses_map_naming_convention(relative_path, ".i3d"):
             return True
-        if self._is_map_xml(relative_path):
+        if self._uses_map_naming_convention(relative_path, ".xml"):
             return True
+
         parts_lower = [p.lower() for p in relative_path.parts]
+
+        if any(name in parts_lower for name in self._xml_only_names_lower):
+            return relative_path.suffix.lower() == ".xml"
+
         return any(ec in parts_lower for ec in self._extra_content_lower)
 
     def _schema_directory(self, file: Path) -> str:
@@ -233,16 +276,19 @@ class FileParserService:
         return self.FALLBACK_DIRECTORY
 
     def _extra_content_target(self, relative_path: Path, root_dir: Path) -> Path | None:
-        """
-        If the file is under a known extra_content directory, return a target
-        path under extra/ that preserves its sub-path. Otherwise, None.
-        """
+        """Return the restructured target path for a known extra_content file."""
         parts_lower = [p.lower() for p in relative_path.parts]
         matched = next((ec for ec in self._extra_content_lower if ec in parts_lower), None)
-        if matched:
-            idx = parts_lower.index(matched)
-            return root_dir / "extra" / Path(*relative_path.parts[idx:])
-        return None
+
+        if not matched:
+            return None
+
+        override = self.CONTENT_OVERRIDES.get(matched)
+        if override:
+            return root_dir / override.target / relative_path.name
+
+        idx = parts_lower.index(matched)
+        return root_dir / "extra" / Path(*relative_path.parts[idx:])
 
     def _create_target_directories(self, root_dir: Path) -> None:
         """
@@ -254,47 +300,21 @@ class FileParserService:
             (root_dir / directory).mkdir(parents=True, exist_ok=True)
 
     @staticmethod
-    def _is_map_i3d(relative_path: Path) -> bool:
+    def _uses_map_naming_convention(relative_path: Path, suffix: str) -> bool:
         """
-        Detect a map's .i3d file across different conventions used by modders.
-
-        At the root of an archive in a flat structure, alongside a file like
-        modDesc.xml.
-
-        Anywhere in a subdirectory e.g. maps, at any depths, e.g. maps/my_map.i3d
-        or maps/my_map/my_map.i3d.
-
-        :param relative_path: (Path) the path of the item to check.
-        :return: (bool) if this is the map's own config XML file.
+        Match a file against the map's own naming convention for the given
+        extension — root level, directly in maps/, or one level deeper
+        where the folder name matches the file's stem.
         """
-        if relative_path.suffix.lower() != ".i3d":
+        if relative_path.suffix.lower() != suffix:
             return False
 
-        if len(relative_path.parts) == 1:
+        parts = relative_path.parts
+        if len(parts) == 1:
             return True
+        if len(parts) == 2:
+            return parts[0].lower() == "maps"
+        if len(parts) == 3 and parts[0].lower() == "maps":
+            return parts[1].lower() == relative_path.stem.lower()
 
-        parts_lower = [p.lower() for p in relative_path.parts]
-        return "maps" in parts_lower
-
-    @staticmethod
-    def _is_map_xml(relative_path: Path) -> bool:
-        """
-        Detect a map's config XML file across different conventions used by modders.
-
-        At the root of an archive in a flat structure, alongside a file like
-        modDesc.xml.
-
-        Anywhere in a subdirectory e.g. maps, at any depths, e.g. maps/my_map.xml
-        or maps/my_map/my_map.xml.
-
-        :param relative_path: (Path) the path of the item to check.
-        :return: (bool) if this is the map's own config XML file.
-        """
-        if relative_path.suffix.lower() != ".xml":
-            return False
-
-        if len(relative_path.parts) == 1:
-            return True
-
-        parts_lower = [p.lower() for p in relative_path.parts]
-        return "maps" in parts_lower
+        return False

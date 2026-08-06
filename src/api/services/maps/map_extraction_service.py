@@ -57,14 +57,8 @@ class MapExtractionService:
             self.aws_service.download_object(key=object_key, download_location=temp_zip.name)
 
             try:
-                extracted = self.file_parser_service.extract_zip(temp_zip.name)
-                restructured = self.file_parser_service.restructure_files(
-                    extracted.files, extracted.root_dir
-                )
-                extracted_files = self.file_parser_service.remove_unwanted_extras(restructured, extracted.root_dir)
-                final_files = self.file_parser_service.filter_extra_content(extracted_files, extracted.root_dir)
-
-                total_mb = sum(f.stat().st_size for f in final_files) / (1024 * 1024)
+                extracted = self.file_parser_service.process(temp_zip.name)
+                total_mb = sum(f.stat().st_size for f in extracted.files) / (1024 * 1024)
             except (FileNotFoundError, BadZipFile, PermissionError) as exc:
                 logger.error(
                     "[Map-Extraction]: Failed to extract '%s' (%d): %s",
@@ -77,12 +71,12 @@ class MapExtractionService:
             try:
                 logger.info(
                     "[Map-Extraction]: Uploading %d file(s) for '%s' (%d).",
-                    len(final_files),
+                    len(extracted.files),
                     map_obj.name,
                     map_obj.id,
                 )
                 s3_uri = self.aws_service.upload_directory_contents(
-                    final_files, extracted.root_dir, output_directory
+                    extracted.files, extracted.root_dir, output_directory
                 )
                 self.map_service.update_map(map_obj, data_uri=s3_uri)
             finally:
@@ -92,7 +86,7 @@ class MapExtractionService:
             "[Map-Extraction]: '%s' (%d) done — %d file(s), %.2f MB in %.2fs.",
             map_obj.name,
             map_obj.id,
-            len(final_files),
+            len(extracted.files),
             total_mb,
             time.monotonic() - start_time,
         )
