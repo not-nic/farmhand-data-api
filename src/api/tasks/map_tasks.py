@@ -2,13 +2,15 @@
 Tasks for ingesting maps into the farmhand data-api in the background.
 """
 
+import asyncio
+
 from src.api.core.db.db_setup import db_session
 from src.api.core.logger import logger
 from src.api.services.assets.asset_ingestion_service import AssetIngestionService
 from src.api.services.maps.map_ingestion_service import MapIngestionService
 
 
-async def get_new_maps() -> None:
+def get_new_maps() -> None:
     """
     Background task to get new maps from the Farming Simulator ModHub,
     and scrape their metadata. Leaves each map at PENDING for the
@@ -19,7 +21,7 @@ async def get_new_maps() -> None:
             "[MAP TASKS]: Starting background task to retrieve "
             "new maps from the ModHub."
         )
-        await MapIngestionService(db=db).get_new_maps()
+        asyncio.run(MapIngestionService(db=db).get_new_maps())
 
 
 def download_pending_maps() -> None:
