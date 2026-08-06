@@ -15,10 +15,6 @@ def get_new_maps() -> None:
     Background task to get new maps from the Farming Simulator ModHub,
     and scrape their metadata. Leaves each map at PENDING for the
     download poller to pick up.
-
-    APScheduler runs this job on a synchronous thread-pool executor, so
-    the underlying async ingestion call is driven to completion here
-    with asyncio.run() rather than being scheduled as a coroutine.
     """
     with db_session() as db:
         logger.info(
