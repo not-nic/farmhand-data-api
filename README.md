@@ -42,27 +42,29 @@ Access the data API here: https://data.farmhand.uk/api/v1/maps/
    ```
 
 ## Local Development
-1. [Create a Python virtual environment](https://packaging.python.org/guides/installing-using-pip-and-virtual-environments/) called `.venv` or `.farmhand` (ideally python 3.12.x)
+1. [Install uv](https://docs.astral.sh/uv/getting-started/installation/) if you don't already have it:
+
+2. use `uv` to create the venv and install dependencies:
    ```bash
-   python -m venv .venv
+   uv sync
    ```
-2. On windows start the virtual environment by using:
+3. Run commands through uv by prefixing commands with `uv`:
    ```bash
-   .venv\Scripts\activate
+   uv run pytest
    ```
-   or if you are on macOS / Linux use:
+4. Or activate the created `.venv` by using the following command on macOS / Linux:
    ```bash
    source .venv/bin/activate
    ``` 
-3. Inside the `.venv` install requirements with the following command:
+   Or if you are on Windows use:
    ```bash
-   pip install -r requirements.txt
+   .venv\Scripts\activate
    ```
-4. Build the application for docker development with the following command:
+5. Build the application for docker development with the following command:
    ```bash
    docker compose up --build
    ```
-5. Verify the application has started properly by checking the output:
+6. Verify the application has started properly by checking the output:
    ```plaintext
     farmhand-api  |                                                  
     farmhand-api  | ______                   _                     _
@@ -74,7 +76,7 @@ Access the data API here: https://data.farmhand.uk/api/v1/maps/
     farmhand-api  |
     farmhand-api  | =========== Farmhand Data API started ============
    ```
-6. Visit the documentation for the application by going to:
+7. Visit the documentation for the application by going to:
    ```plaintext
    http://localhost:8001/docs
    ```
