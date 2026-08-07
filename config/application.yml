@@ -49,6 +49,8 @@ farmhand:
       - "licensePlatesDE.i3d"
       - "licensePlates.i3d"
       - "sounds.i3d"
+      - "decoFoliageEU.xml"
+      - "decoFoliageUS.xml"
 
   extra_content:
     # Vehicles & Equipment
