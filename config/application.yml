@@ -45,6 +45,12 @@ farmhand:
       - "colorGradingNight.xml"
       - "colorGrading.xml"
       - "collectibles.xml"
+      - "licensePlatesFR.i3d"
+      - "licensePlatesDE.i3d"
+      - "licensePlates.i3d"
+      - "sounds.i3d"
+      - "decoFoliageEU.xml"
+      - "decoFoliageUS.xml"
 
   extra_content:
     # Vehicles & Equipment
@@ -62,3 +68,7 @@ farmhand:
 
     # Misc
     - "icons"
+
+    # crops
+    - "foliage"
+    - "huds"
