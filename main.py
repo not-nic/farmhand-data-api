@@ -12,7 +12,9 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from src.api.core.config import settings
+from src.api.core.db.db_setup import db_session
 from src.api.core.logger import logger
+from src.api.core.repositories import TaskRepository
 from src.api.routes import api_router
 from src.api.tasks import base_scheduler
 from src.api.utils import format_pydantic_errors
@@ -33,8 +35,10 @@ async def lifespan(app: FastAPI):
     :param app: The FastAPI application instance
     """
     logger.info("Starting APScheduler and Scheduling jobs...")
+    with db_session() as db:
+        overrides = TaskRepository(db).all_by_job_id()
     scheduler.start()
-    base_scheduler.schedule_jobs(scheduler=scheduler)
+    base_scheduler.schedule_jobs(scheduler=scheduler, overrides=overrides)
     yield  # Continue running the app
     scheduler.shutdown()
 
