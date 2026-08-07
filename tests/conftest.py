@@ -154,12 +154,6 @@ def mock_file_parser_service(mocker) -> Generator[FileParserService, Any]:
     temp_dir = TemporaryDirectory()
     temp_path = Path(temp_dir.name)
 
-    file_names = ["map.i3d", "vehicles.xml", "overview.dds", "infoLayer.grle"]
-
-    mock_extracted = ExtractedZip(
-        files=[temp_path / name for name in file_names], root_dir=temp_path, temp_dir=temp_dir
-    )
-
     restructured_files = [
         temp_path / "map/map.i3d",
         temp_path / "config/vehicles.xml",
@@ -171,11 +165,10 @@ def mock_file_parser_service(mocker) -> Generator[FileParserService, Any]:
         file_path.parent.mkdir(parents=True, exist_ok=True)
         file_path.write_text("some text")
 
+    processed = ExtractedZip(files=restructured_files, root_dir=temp_path, temp_dir=temp_dir)
+
     mock_file_parser_service = mocker.Mock()
-    mock_file_parser_service.extract_zip.return_value = mock_extracted
-    mock_file_parser_service.restructure_files.return_value = restructured_files
-    mock_file_parser_service.remove_unwanted_extras.return_value = restructured_files
-    mock_file_parser_service.filter_extra_content.return_value = restructured_files
+    mock_file_parser_service.process.return_value = processed
 
     yield mock_file_parser_service
 

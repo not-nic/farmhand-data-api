@@ -63,7 +63,6 @@ class FileParserService:
     ASSET_SUBDIRECTORY_NAMES: set[str] = {"sounds", "textures", "models", "effects", "particles"}
     CONTENT_OVERRIDES: dict[str, ContentOverride] = {
         "foliage": ContentOverride(target="extra/crops", xml_only=True),
-        "huds": ContentOverride(target="assets/icons"),
     }
 
     def __init__(
