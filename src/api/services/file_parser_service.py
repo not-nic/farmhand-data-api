@@ -106,7 +106,9 @@ class FileParserService:
         """
         Extract a mod archive and return only the files that pass the allowlist.
 
-        :param filename: Path to the .zip to extract.
+        :param filename: (str) Path to the .zip to extract.
+        :return: (ExtractedZIp) the extracted zip dataclass containing the files, root and
+        temp directory.
         :raises FileNotFoundError: If the zip does not exist.
         :raises BadZipFile: If the file is not a valid zip archive.
         :raises PermissionError: If the file cannot be read.
@@ -137,9 +139,9 @@ class FileParserService:
         """
         Copy each kept file into the farmhand directory layout under root_dir.
 
-        :param files: Filtered files returned by extract_zip.
-        :param root_dir: Root of the extracted mod.
-        :return: List of paths in their new restructured locations.
+        :param files: (list) Filtered files that are returned by extract_zip.
+        :param root_dir: (Path) Root of the extracted mod.
+        :return: (list) List of paths in their new restructured locations.
         """
         start_time = time.monotonic()
         self._create_target_directories(root_dir)
@@ -168,9 +170,9 @@ class FileParserService:
         """
         Remove any extra/ content whose directory is no longer in extra_content.
 
-        :param files: Restructured file paths from restructure_files.
-        :param root_dir: Root directory used to compute relative paths.
-        :return: Cleaned file list with unwanted extras removed.
+        :param files: (list) Restructured file paths from restructure_files.
+        :param root_dir: (Path) Root directory used to compute relative paths.
+        :return: (list) Cleaned file list with unwanted extras removed.
         """
         special_extra_roots = {
             override.target.split("/", 1)[1].split("/")[0]
@@ -204,9 +206,9 @@ class FileParserService:
         """
         Reduce extra/ content down to the primary XML file per item.
 
-        :param files: Restructured file list from restructure_files.
-        :param root_dir: Root directory used to compute relative paths.
-        :return: Cleaned file list.
+        :param files: (list) Restructured file list from restructure_files.
+        :param root_dir: (Path) Root directory used to compute relative paths.
+        :return: (list) Cleaned file list.
         """
         xml_only_roots = {
             override.target.split("/")[-1]
@@ -250,7 +252,12 @@ class FileParserService:
         return kept
 
     def _should_keep(self, relative_path: Path) -> bool:
-        """Allowlist check for a single extracted file."""
+        """
+        Check if a file should be kept or removed.
+
+        :param relative_path: (Path) The path of the file.
+        :return: (bool) if the file should be kept or excluded.
+        """
         if relative_path.name in self._excluded_files:
             return False
         if any(relative_path.match(p) for p in self._include_patterns):
@@ -268,7 +275,12 @@ class FileParserService:
         return any(ec in parts_lower for ec in self._extra_content_lower)
 
     def _schema_directory(self, file: Path) -> str:
-        """Return the schema target directory for this file's extension."""
+        """
+        Return the schema target directory for this file's extension.
+
+        :param file: (Path) The file to move.
+        :return: (str) the directory this file should be moved to.
+        """
         ext = file.suffix.lower()
         for directory, extensions in self.parser_directory_schema.items():
             if ext in extensions:
@@ -276,7 +288,13 @@ class FileParserService:
         return self.FALLBACK_DIRECTORY
 
     def _extra_content_target(self, relative_path: Path, root_dir: Path) -> Path | None:
-        """Return the restructured target path for a known extra_content file."""
+        """
+        Get the restructured target path for a known extra_content file.
+
+        :param relative_path: (Path) The relative path of the file.
+        :param root_dir: (Path) The root directory of the mod.
+        :return: (Path) The new path of the extra content relative to the /extras directory.
+        """
         parts_lower = [p.lower() for p in relative_path.parts]
         matched = next((ec for ec in self._extra_content_lower if ec in parts_lower), None)
 
@@ -294,7 +312,8 @@ class FileParserService:
         """
         Create the target directories within the TemporaryDirectory based on
         the provided parser_directory_schema.
-        :param root_dir: The root of the TemporaryDirectory.
+
+        :param root_dir: (Path) The root of the TemporaryDirectory.
         """
         for directory in self.parser_directory_schema:
             (root_dir / directory).mkdir(parents=True, exist_ok=True)
@@ -303,8 +322,10 @@ class FileParserService:
     def _uses_map_naming_convention(relative_path: Path, suffix: str) -> bool:
         """
         Match a file against the map's own naming convention for the given
-        extension — root level, directly in maps/, or one level deeper
-        where the folder name matches the file's stem.
+        extension.
+
+        :param relative_path: (Path) the path of the item to check.
+        :return: (bool) if this is the map's own config XML file.
         """
         if relative_path.suffix.lower() != suffix:
             return False
