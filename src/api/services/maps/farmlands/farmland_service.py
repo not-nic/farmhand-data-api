@@ -48,7 +48,8 @@ class FarmlandService:
 
         for map_id in map_ids:
             info_layer = self.info_layer_repository.get_by_map_and_key(
-                map_id, self.FARMLANDS_LAYER_KEY
+                map_id,
+                self.FARMLANDS_LAYER_KEY
             )
 
             if not info_layer or not info_layer.is_ingested:

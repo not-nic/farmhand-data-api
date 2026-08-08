@@ -44,7 +44,7 @@ class Farmland(SqlAlchemyBase):
     price_scale: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
     default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
-    coordinates: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    coordinates: Mapped[list | None] = mapped_column(JSON(none_as_null=True), nullable=True)
     size_ha: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
 
     map: Mapped[Map] = relationship("Map", back_populates="farmlands")

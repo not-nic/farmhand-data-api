@@ -15,6 +15,8 @@ from src.api.core.config import settings
 from src.api.core.db.models import Map
 from src.api.core.exceptions import MapProcessingError
 from src.api.core.logger import logger
+from src.api.core.repositories.farmland_repository import FarmlandRepository
+from src.api.core.repositories.info_layer_repository import InfoLayerRepository
 from src.api.services.aws.aws_service import AwsService
 from src.api.services.maps.map_download_service import MapDownloadService
 from src.api.services.maps.map_extraction_service import MapExtractionService
@@ -41,6 +43,8 @@ class MapIngestionService:
             xml_parser_service: MapXmlParserService | None = None,
             aws_service: AwsService | None = None,
             recovery_service: MapRecoveryService | None = None,
+            info_layer_repository: InfoLayerRepository | None = None,
+            farmland_repository: FarmlandRepository | None = None,
     ):
         self.map_service = map_service or MapService(db)
         self.scraper_service = scraper_service or MapScrapingService(db)
@@ -49,6 +53,8 @@ class MapIngestionService:
         self.xml_parser_service = xml_parser_service or MapXmlParserService(db)
         self.aws_service = aws_service or AwsService()
         self.recovery_service = recovery_service or MapRecoveryService(db)
+        self.info_layer_repository = info_layer_repository or InfoLayerRepository(db)
+        self.farmland_repository = farmland_repository or FarmlandRepository(db)
 
     async def get_new_maps(self) -> None:
         """
@@ -157,6 +163,10 @@ class MapIngestionService:
     def reingest_map(self, map_id: int) -> None:
         """
         Manually trigger the re-ingestion of a map for a given Map ID.
+        Downloads, extracts, and re-parses XML/InfoLayers/Farmlands, and
+        resets ingestion flags so the async GRLE conversion and farmland
+        geometry jobs pick the fresh data back up.
+
         :param map_id: The ModHub ID of the map to reingest.
         :raises ValueError: If no map with the given ID exists in the database.
         """
@@ -191,6 +201,19 @@ class MapIngestionService:
         )
         self._extract_map(map_obj)
 
+        map_obj = self.map_service.get_map_by_id(map_id)
+
+        if map_obj.ingestion_status != IngestionStatus.EXTRACTED:
+            logger.error(
+                "Reingest for '%s' (%d) aborted — extraction did not complete.",
+                map_obj.name,
+                map_obj.id,
+            )
+            return
+
+        self.xml_parser_service.parse_map(map_obj)
+        self._reset_downstream_ingestion(map_obj)
+
         logger.info("Reingest complete for '%s' (%d).", map_obj.name, map_obj.id)
 
     def reingest_all_maps(self) -> None:
@@ -213,6 +236,27 @@ class MapIngestionService:
 
         logger.info(
             "Reset %d map(s) to PENDING.", len(maps)
+        )
+
+    def _reset_downstream_ingestion(self, map_obj: Map) -> None:
+        """
+        Reset the ingestion state of anything derived from this map's
+        GRLE/geometry data, so the async conversion and geometry jobs
+        reprocess it against the freshly re-extracted files rather than
+        skipping it as already done.
+
+        :param map_obj: The map that was just reparsed.
+        """
+        for info_layer in self.info_layer_repository.get_by_map_id(map_obj.id):
+            self.info_layer_repository.update(info_layer, is_ingested=False, asset_uri=None)
+
+        for farmland in self.farmland_repository.get_by_map_id(map_obj.id):
+            self.farmland_repository.update(farmland, coordinates=None, size_ha=None)
+
+        logger.info(
+            "Reset downstream ingestion state for '%s' (%d).",
+            map_obj.name,
+            map_obj.id,
         )
 
     def _download_map(self, map_obj: Map) -> None:

@@ -24,6 +24,14 @@ class InfoLayerRepository(Repository[InfoLayer]):
         query = self.db.query(self.model).filter(self.model.is_ingested.is_(False))
         return query.all()
 
+    def get_by_map_id(self, map_id: int) -> list[InfoLayer]:
+        """
+        Get all info layers for a given map.
+        :param map_id: The map ID to look up.
+        :return: List of info layers belonging to the map.
+        """
+        return self.db.query(self.model).filter(self.model.map_id == map_id).all()
+
     def get_by_map_and_key(self, map_id: int, layer_key: str) -> InfoLayer | None:
         """
         Get a MapInfoLayer for a given map by its layer_key.
