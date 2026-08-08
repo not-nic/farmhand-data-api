@@ -106,3 +106,14 @@ class EntityType(StrEnum):
     Entity types that can own assets.
     """
     MAP = "map"
+
+
+class SoilType(StrEnum):
+    """
+    Precision Farming soil type classification.
+    """
+
+    LOAMY_SAND = "loamy_sand"
+    SANDY_LOAM = "sandy_loam"
+    LOAM = "loam"
+    SILTY_CLAY = "silty_clay"

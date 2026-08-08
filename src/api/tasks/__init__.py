@@ -12,7 +12,7 @@ from src.api.tasks.map_tasks import (
     generate_map_assets,
     get_new_maps,
     parse_map_xml,
-    retry_stalled_downloads,
+    retry_stalled_downloads, process_info_layers, process_farmlands,
 )
 from src.api.tasks.scheduler import JobModel, Scheduler
 
@@ -62,18 +62,38 @@ base_scheduler.add_job(JobModel(
 
 
 base_scheduler.add_job(JobModel(
+    func=process_farmlands,
+    trigger=IntervalTrigger(seconds=30),
+    id="process_farmlands",
+    name="Create farmlands for each extracted map",
+    group="pipeline",
+))
+
+
+base_scheduler.add_job(JobModel(
     func=retry_stalled_downloads,
     trigger=CronTrigger(minute=0),
     id="retry_stalled_downloads",
     name="Reset stalled DOWNLOADING maps back to PENDING",
     group="recovery",
+    enabled=False
 ))
 
 
+# Image Conversion
 base_scheduler.add_job(JobModel(
     func=generate_map_assets,
     trigger=IntervalTrigger(minutes=2),
     id="generate_map_assets",
     name="Convert and upload pending map assets",
+    group="pipeline",
+))
+
+
+base_scheduler.add_job(JobModel(
+    func=process_info_layers,
+    trigger=IntervalTrigger(seconds=30),
+    id="process_info_layers",
+    name="Convert pending info layer GRLE files to PNG",
     group="pipeline",
 ))

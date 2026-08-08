@@ -15,6 +15,8 @@ from src.api.constants import IngestionStatus
 from src.api.core.db.models import Map
 from src.api.core.logger import logger
 from src.api.handlers.xml.base_xml_handler import BaseXmlHandler
+from src.api.handlers.xml.farmland_xml_handler import FarmlandsXmlHandler
+from src.api.handlers.xml.i3d.info_layer_handler import InfoLayerHandler
 from src.api.handlers.xml.maps_xml_handler import MapsXmlHandler
 from src.api.handlers.xml.mod_desc_handler import ModDescHandler
 from src.api.services.assets.assets_service import AssetsService
@@ -50,7 +52,9 @@ class MapXmlParserService:
         # Register handlers in the order they should run
         self.handlers: list[BaseXmlHandler] = [
             ModDescHandler(db, aws, assets),
-            MapsXmlHandler(db, aws, assets)
+            MapsXmlHandler(db, aws, assets),
+            InfoLayerHandler(db, aws),
+            FarmlandsXmlHandler(db, aws),
         ]
 
     def parse_map(self, map_obj: Map) -> None:

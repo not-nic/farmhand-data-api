@@ -57,7 +57,7 @@ class MapsXmlHandler(BaseXmlHandler[MapsXmlModel]):
         parsed: MapsXmlModel = MapsXmlParser().parse(content)
         self._store(map_obj, parsed)
 
-    def _store(self, map_obj: Map, parsed: MapsXmlModel) -> None:
+    def _store(self, map_obj: Map, parsed: MapsXmlModel, **kwargs) -> None:
         """
         Persist all data extracted from a maps.xml file.
 

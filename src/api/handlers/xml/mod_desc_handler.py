@@ -50,7 +50,7 @@ class ModDescHandler(BaseXmlHandler):
         parsed: ModDescModel = ModDescXmlParser().parse(content)
         self._store(map_obj, parsed)
 
-    def _store(self, map_obj: Map, parsed: ModDescModel) -> None:
+    def _store(self, map_obj: Map, parsed: ModDescModel, **kwargs) -> None:
         """
         Persist all data extracted from modDesc.xml, upserts the ModDescription,
         assets, and associates dependencies.

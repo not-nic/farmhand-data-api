@@ -3,6 +3,8 @@ from typing import Literal
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 
 from src.api.core.dependencies import SessionDep
+from src.api.core.schema.maps.farmlands import FarmlandRescaleRequest
+from src.api.services.maps.farmlands.farmland_service import FarmlandService
 from src.api.services.maps.map_extraction_service import MapExtractionService
 from src.api.services.maps.map_ingestion_service import MapIngestionService
 from src.api.services.maps.map_xml_parser_service import MapXmlParserService
@@ -20,6 +22,7 @@ async def reingest_mod(
     """
     Endpoint to manually trigger the re-ingestion (Download, Extraction, etc.)
     for a given mod.
+
     :param mod_id: The ModHub ID of the mod to reingest.
     :param mod_type: The type of mod to reingest e.g. 'map'.
     :param db: The database session dependency.
@@ -58,6 +61,43 @@ async def reingest_all_mods(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"'{mod_type}' is not a valid mod_type."
         )
+
+
+@router.post("/{mod_id}/rescale", status_code=status.HTTP_200_OK)
+async def rescale_farmlands(
+    mod_id: int,
+    payload: FarmlandRescaleRequest,
+    db: SessionDep,
+):
+    """
+    Apply a linear scale+offset transform to a map's stored farmland
+    coordinates.
+
+    Intended to be used by a private frontend to the data-api to visually
+    adjust a maps overview, farmland size, or any other data and overwrite it
+    with a scaling factor.
+
+    :param mod_id: The ModHub ID of the map whose farmlands to rescale.
+    :param payload: The transform to apply, and whether to dry-run it.
+    :param db: The database session dependency.
+    """
+    farmland_service: FarmlandService = FarmlandService(db)
+
+    try:
+        result: dict = farmland_service.rescale_farmlands(
+            map_id=mod_id,
+            offset_x=payload.offset_x,
+            offset_y=payload.offset_y,
+            scale_x=payload.scale_x,
+            scale_y=payload.scale_y,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=str(exc),
+        ) from exc
+
+    return result
 
 
 @router.post("/parse-xml/{mod_id}", status_code=status.HTTP_200_OK)

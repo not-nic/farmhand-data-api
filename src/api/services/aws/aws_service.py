@@ -19,7 +19,7 @@ from mypy_boto3_s3.type_defs import ObjectIdentifierTypeDef
 from src.api.adapters import IteratorAsFileObj
 from src.api.core.config import settings
 from src.api.core.logger import logger
-from src.api.utils import extension_to_content_type
+from src.api.utils import extension_to_content_type, key_from_s3_uri
 
 TRANSFER_CONFIG = TransferConfig(
     multipart_threshold=64 * 1024 * 1024,
@@ -99,7 +99,7 @@ class AwsService:
         :param uri: The S3 URI e.g. 's3://farmhand-map-ingest/359448/FS25_Am_MLK/config/modDesc.xml'
         :return: Raw bytes of the object.
         """
-        key = uri.split("/", 3)[-1]
+        key = key_from_s3_uri(uri)
         try:
             response = self.s3.get_object(Bucket=self.bucket, Key=key)
             return response["Body"].read()
@@ -276,6 +276,15 @@ class AwsService:
         except ClientError as exc:
             logger.warning("Failed to delete prefix '%s' from %s: %s", prefix, self.bucket, exc)
             raise
+
+    def build_uri(self, key: str) -> str:
+        """
+        Construct a S3 URI for an object.
+
+        :param key: The S3 object key.
+        :return: Full S3 URI, e.g. 's3://bucket/key'.
+        """
+        return f"s3://{self.bucket}/{key}"
 
     @staticmethod
     def _stream_transfer_config() -> TransferConfig:
