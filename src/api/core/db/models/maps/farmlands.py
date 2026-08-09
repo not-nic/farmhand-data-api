@@ -5,7 +5,7 @@ SQLAlchemy model for a single farmland on a map.
 from typing import TYPE_CHECKING
 from uuid import uuid7
 
-from sqlalchemy import UUID, Boolean, ForeignKey, Integer, JSON, Numeric, String
+from sqlalchemy import JSON, UUID, Boolean, ForeignKey, Integer, Numeric
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
@@ -46,6 +46,7 @@ class Farmland(SqlAlchemyBase):
 
     coordinates: Mapped[list | None] = mapped_column(JSON(none_as_null=True), nullable=True)
     size_ha: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
+    area_types: Mapped[list | None] = mapped_column(JSON(none_as_null=True), nullable=True)
 
     map: Mapped[Map] = relationship("Map", back_populates="farmlands")
     info_layer: Mapped[InfoLayer] = relationship("InfoLayer")

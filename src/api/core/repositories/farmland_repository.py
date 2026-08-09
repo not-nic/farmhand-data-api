@@ -47,6 +47,14 @@ class FarmlandRepository(Repository[Farmland]):
         """
         return self.db.query(self.model).filter(self.model.coordinates.is_(None)).all()
 
+    def get_pending_area_types(self) -> list[Farmland]:
+        """
+        Get farmlands that don't yet have area types extracted.
+
+        :return: List of farmlands awaiting geometry extraction.
+        """
+        return self.db.query(self.model).filter(self.model.area_types.is_(None)).all()
+
     def upsert(
         self,
         map_id: int,

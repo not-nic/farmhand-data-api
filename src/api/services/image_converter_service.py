@@ -66,7 +66,7 @@ class _RunLengthReader:
         self._stream = stream
         self._pos = start_pos
 
-    def __iter__(self) -> "_RunLengthReader":
+    def __iter__(self) -> _RunLengthReader:
         return self
 
     def __next__(self) -> tuple[int, int]:

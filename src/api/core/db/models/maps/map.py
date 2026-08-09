@@ -10,7 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
     from src.api.core.db.models.assets import Asset
-    from src.api.core.db.models.maps import MapInformation, InfoLayer, Farmland
+    from src.api.core.db.models.maps import Farmland, InfoLayer, MapInformation
     from src.api.core.db.models.mods import ChangeLog, Dependency, ModDescription
 
 from src.api.constants import IngestionStatus

@@ -2,7 +2,7 @@
 Pydantic models for a parsed farmlands.xml file.
 """
 
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
 from src.api.constants import SoilType
 
@@ -48,7 +48,8 @@ class FarmlandResponse(BaseModel):
     default: bool = False
     size_ha: float | None = None
     coordinates: list | None = None
-    soil_types: list[SoilTypeResponse] = []
+    # soil_types: list[SoilTypeResponse] = []
+    area_types: dict[str, float] | None = None
 
     model_config = ConfigDict(from_attributes=True)
 

@@ -4,8 +4,12 @@ Python module containing a parser for a .i3d XML file.
 
 from xml.etree.ElementTree import Element
 
-from src.api.core.schema.mods.i3d import I3dModel, InfoLayerOptionModel
-from src.api.core.schema.mods.i3d import InfoLayerModel
+from src.api.core.schema.mods.i3d import (
+    I3dModel,
+    InfoLayerGroupModel,
+    InfoLayerModel,
+    InfoLayerOptionModel,
+)
 from src.api.parsers.xml.base_parser import BaseXmlParser
 
 
@@ -17,6 +21,7 @@ class I3dParser(BaseXmlParser[I3dModel]):
     valid_info_layers: set[str] = {
         "farmlands",
         "soilMap",
+        "environment",
     }
 
     def parse(self, content: bytes) -> I3dModel:
@@ -83,25 +88,41 @@ class I3dParser(BaseXmlParser[I3dModel]):
                     layer_key=name,
                     i3d_file_id=file_id,
                     grle_filename=files.get(file_id, self._guess_filename(name)),
-                    options=self._get_options(element),
+                    groups=self._get_groups(element),
                 )
             )
 
         return layers
 
     @staticmethod
-    def _get_options(info_layer_element: Element) -> list[InfoLayerOptionModel]:
+    def _get_groups(info_layer_element: Element) -> list[InfoLayerGroupModel]:
         """
-        Get the value/name Option pairs nested under an InfoLayer's Group(s).
+        Get every Group directly under an InfoLayer, each with its own
+        channel offset and Option list. An InfoLayer can pack multiple
+        Groups into different bit ranges of the same pixel value, so
+        Options are kept scoped per-group rather than flattened together.
 
         :param info_layer_element: The <InfoLayer> element to search within.
-        :return: List of parsed InfoLayerOptionModel entries.
+        :return: List of parsed InfoLayerGroupModel entries.
         """
-        return [
-            InfoLayerOptionModel(value=int(option.get("value")), name=option.get("name"))
-            for option in info_layer_element.iter("Option")
-            if option.get("value") is not None and option.get("name")
-        ]
+        groups = []
+        for group_element in info_layer_element.findall("Group"):
+            options = [
+                InfoLayerOptionModel(value=int(option.get("value")), name=option.get("name"))
+                for option in group_element.findall("Option")
+                if option.get("value") is not None and option.get("name")
+            ]
+
+            groups.append(
+                InfoLayerGroupModel(
+                    name=group_element.get("name", ""),
+                    first_channel=int(group_element.get("firstChannel", 0)),
+                    num_channels=int(group_element.get("numChannels", 0)),
+                    options=options,
+                )
+            )
+
+        return groups
 
     @staticmethod
     def _guess_filename(layer_key: str) -> str:

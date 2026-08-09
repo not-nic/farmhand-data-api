@@ -117,3 +117,18 @@ class SoilType(StrEnum):
     SANDY_LOAM = "sandy_loam"
     LOAM = "loam"
     SILTY_CLAY = "silty_clay"
+
+
+class AreaType(StrEnum):
+    """
+    Area Type Enum used within a map.i3d file to split farmlands from unusable areas.
+    """
+    FARMLAND = "Open Land"
+    CITY = "City"
+    VILLAGE = "Village"
+    HARBOR = "Harbor"
+    INDUSTRIAL = "Industrial"
+    OPEN_WATER = "Open Water"
+    NO_WATER = "No Water"
+    NEAR_WATER = "Near Water"
+    UNKNOWN = "Unknown"

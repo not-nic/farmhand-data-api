@@ -2,9 +2,10 @@ from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 
+from src.api.builder.area_type_builder import AreaTypeBuilder
+from src.api.builder.farmland_builder import FarmlandBuilder
 from src.api.core.dependencies import SessionDep
 from src.api.core.schema.maps.farmlands import FarmlandRescaleRequest
-from src.api.services.maps.farmlands.farmland_service import FarmlandService
 from src.api.services.maps.map_extraction_service import MapExtractionService
 from src.api.services.maps.map_ingestion_service import MapIngestionService
 from src.api.services.maps.map_xml_parser_service import MapXmlParserService
@@ -81,10 +82,10 @@ async def rescale_farmlands(
     :param payload: The transform to apply, and whether to dry-run it.
     :param db: The database session dependency.
     """
-    farmland_service: FarmlandService = FarmlandService(db)
+    farmland_builder: FarmlandBuilder = FarmlandBuilder(db)
 
     try:
-        result: dict = farmland_service.rescale_farmlands(
+        result: dict = farmland_builder.rescale_farmlands(
             map_id=mod_id,
             offset_x=payload.offset_x,
             offset_y=payload.offset_y,
@@ -150,3 +151,11 @@ async def delete_zip_archives(
     """
     background_tasks.add_task(MapExtractionService(db=db).delete_zip_archives)
     return {"message": "Started deleting zip archives from S3"}
+
+
+@router.get("/data/farmlands/{map_id}/area-types", status_code=status.HTTP_200_OK)
+async def get_farmland_area_types(map_id: int, db: SessionDep):
+    """
+    (temp) Compute area type composition for a map's farmlands without persisting.
+    """
+    return AreaTypeBuilder(db).get_area_type_composition(map_id)

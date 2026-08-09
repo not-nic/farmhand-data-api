@@ -4,11 +4,11 @@ Tasks for ingesting maps into the farmhand data-api in the background.
 
 import asyncio
 
+from src.api.builder.map_builder import MapBuilder
 from src.api.core.db.db_setup import db_session
 from src.api.core.logger import logger
 from src.api.services.assets.asset_ingestion_service import AssetIngestionService
 from src.api.services.assets.info_layer_ingestion_service import InfoLayerIngestionService
-from src.api.services.maps.farmlands.farmland_service import FarmlandService
 from src.api.services.maps.map_ingestion_service import MapIngestionService
 
 
@@ -84,10 +84,10 @@ def process_info_layers() -> None:
         InfoLayerIngestionService(db=db).process_info_layers()
 
 
-def process_farmlands() -> None:
+def process_map_layers() -> None:
     """
-    Background task to create farmland field coordinates and sizes.
+    Background task to run every registered map layer builder.
     """
     with db_session() as db:
-        logger.debug("[MAP TASKS]: Creating farmlands.")
-        FarmlandService(db=db).process_farmlands()
+        logger.debug("[MAP TASKS]: Processing pending map layers.")
+        MapBuilder(db).process_pending()

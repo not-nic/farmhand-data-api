@@ -12,7 +12,9 @@ from src.api.tasks.map_tasks import (
     generate_map_assets,
     get_new_maps,
     parse_map_xml,
-    retry_stalled_downloads, process_info_layers, process_farmlands,
+    process_info_layers,
+    process_map_layers,
+    retry_stalled_downloads,
 )
 from src.api.tasks.scheduler import JobModel, Scheduler
 
@@ -63,10 +65,10 @@ base_scheduler.add_job(JobModel(
 
 
 base_scheduler.add_job(JobModel(
-    func=process_farmlands,
+    func=process_map_layers,
     trigger=IntervalTrigger(seconds=30),
-    id="process_farmlands",
-    name="Create farmlands for each extracted map",
+    id="process_map_data",
+    name="Build map information",
     group="pipeline",
 ))
 

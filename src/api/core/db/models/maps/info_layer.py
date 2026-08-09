@@ -5,7 +5,7 @@ SQLAlchemy model for a map's GRLE info layers.
 from typing import TYPE_CHECKING
 from uuid import uuid7
 
-from sqlalchemy import UUID, ForeignKey, Integer, String, Boolean
+from sqlalchemy import UUID, Boolean, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:

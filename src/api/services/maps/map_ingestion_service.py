@@ -89,7 +89,7 @@ class MapIngestionService:
             scraped_count += 1
 
         logger.info(
-            "Successfully scraped and downloaded '%d' maps from the ModHub.", scraped_count
+            "Successfully scraped '%d' maps from the ModHub.", scraped_count
         )
 
     def download_pending_maps(self) -> None:
@@ -251,7 +251,7 @@ class MapIngestionService:
             self.info_layer_repository.update(info_layer, is_ingested=False, asset_uri=None)
 
         for farmland in self.farmland_repository.get_by_map_id(map_obj.id):
-            self.farmland_repository.update(farmland, coordinates=None, size_ha=None)
+            self.farmland_repository.update(farmland, area_types=None, coordinates=None, size_ha=None)
 
         logger.info(
             "Reset downstream ingestion state for '%s' (%d).",
