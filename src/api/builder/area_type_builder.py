@@ -121,7 +121,7 @@ class AreaTypeBuilder(BaseMapLayerBuilder):
         map_obj: Map | None = self.map_service.get_map_by_id(map_id)
 
         if not map_obj or not map_obj.information or not map_obj.information.width:
-            raise ValueError(f"Map {map_id} has no terrain width available.")
+            raise ValueError(f"Map {map_id} has no width available.")
 
         if map_obj.ingestion_status == IngestionStatus.FAILED:
             raise ValueError(f"Map {map_id} ingestion status is FAILED.")
