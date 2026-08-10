@@ -4,6 +4,7 @@ Python module containing a builder to extract farmland geometry
 """
 
 import time
+from collections import defaultdict
 from typing import Iterable
 
 import cv2
@@ -19,13 +20,32 @@ from src.api.builder.base_layer_builder import (
     FARMLANDS_LAYER_KEY,
 )
 
-CONTOUR_EPSILON = 2.0  # pixel tolerance for polygon simplification
-
 
 class FarmlandBuilder(BaseMapLayerBuilder):
     """
     Builds farmland coordinates and size from a converted .grle file.
     """
+
+    # The furthest a stored vertex may sit from the farmland boundary.
+    CONTOUR_TOLERANCE_METERS: float = 3.0
+
+    # Floor on the above in layer pixels; subpixel tolerance preserves noise.
+    MIN_CONTOUR_EPSILON: float = 1.0
+
+    # Vertex ceiling per farmland. Exceeding it simplifies past the tolerance,
+    # so it caps pathological boundaries.
+    MAX_CONTOUR_VERTICES: int = 250
+
+    # Smallest contour area, in layer pixels, still treated as a field.
+    MIN_CONTOUR_PIXELS: int = 24
+
+    # Share of a contour's interior belonging to the farmland. Fields score
+    # ~1.0; a value threading between them encircles the map filling little.
+    MIN_CONTOUR_FILL_RATIO: float = 0.5
+
+    # Opening kernel width in layer pixels; erases thinner mask features.
+    # Raise to 5 for a full-resolution layer.
+    OPENING_KERNEL_SIZE: int = 3
 
     def __init__(self, db: Session) -> None:
         super().__init__(db)
@@ -40,9 +60,11 @@ class FarmlandBuilder(BaseMapLayerBuilder):
         if not pending:
             return
 
-        map_ids: set[int] = {farmland.map_id for farmland in pending}
+        pending_by_map: dict[int, list[Farmland]] = defaultdict(list)
+        for farmland in pending:
+            pending_by_map[farmland.map_id].append(farmland)
 
-        for map_id in map_ids:
+        for map_id, farmlands in pending_by_map.items():
             farmlands_layer: InfoLayer | None = self.info_layer_repository.get_by_map_and_key(
                 map_id, FARMLANDS_LAYER_KEY
             )
@@ -51,7 +73,7 @@ class FarmlandBuilder(BaseMapLayerBuilder):
                 continue
 
             try:
-                self._process_map(map_id, farmlands_layer.asset_uri)
+                self._process_map(map_id, farmlands_layer.asset_uri, farmlands)
             except Exception as exc:
                 logger.error(
                     "[%s]: Failed to process map %d: %s",
@@ -60,12 +82,19 @@ class FarmlandBuilder(BaseMapLayerBuilder):
                     exc,
                 )
 
-    def _process_map(self, map_id: int, farmlands_asset_uri: str) -> None:
+    def _process_map(
+            self,
+            map_id: int,
+            farmlands_asset_uri: str,
+            farmlands: list[Farmland],
+    ) -> None:
         """
         Extract and persist geometry for every farmland on a single map.
 
         :param map_id: The map to process.
         :param farmlands_asset_uri: S3 URI of the converted farmlands PNG.
+        :param farmlands: The map's farmlands awaiting geometry.
+
         :raises ClientError: If an S3 fetch fails.
         :raises ParseError: If map.i3d is not valid XML.
         :raises UnidentifiedImageError: If the farmlands PNG is unreadable.
@@ -117,15 +146,11 @@ class FarmlandBuilder(BaseMapLayerBuilder):
             pixels, map_obj.information.width, unbuyable_values
         )
 
-        farmlands: list[Farmland] = [
-            f for f in self.farmland_repository.get_pending_geometry() if f.map_id == map_id
-        ]
-
         found_count: int = 0
         for farmland in farmlands:
             farmland_geometry: dict | None = geometry.get(farmland.number)
 
-            if not farmland_geometry:
+            if not farmland_geometry or not farmland_geometry["coordinates"]:
                 self.farmland_repository.update(farmland, coordinates=[], size_ha=0)
                 continue
 
@@ -243,8 +268,18 @@ class FarmlandBuilder(BaseMapLayerBuilder):
             if pixel_count == 0:
                 continue
 
+            coordinates: list[list[int]] = self._field_polygon(mask, coordinate_scale)
+
+            if not coordinates:
+                logger.debug(
+                    "[%s]: Farmland %d yielded no usable contour from %d pixel(s).",
+                    self.name,
+                    farmland_number,
+                    pixel_count,
+                )
+
             result[farmland_number] = {
-                "coordinates": self._largest_contour(mask, coordinate_scale),
+                "coordinates": coordinates,
                 "size_ha": round(pixel_count / pixels_per_hectare, 2),
             }
 
@@ -264,32 +299,43 @@ class FarmlandBuilder(BaseMapLayerBuilder):
         meters_per_pixel: float = map_width_meters / image_width_px
         return 10_000 / (meters_per_pixel ** 2)
 
-    @staticmethod
-    def _largest_contour(
+    @classmethod
+    def _field_polygon(
+            cls,
             mask: np.ndarray,
             coordinate_scale: float = 1.0
-    ) -> list[list[int]] | None:
+    ) -> list[list[int]]:
         """
-        Find the largest polygon boundary within a farmland's pixel mask.
-        Only the largest contour is kept as a storage optimisation.
+        Find the largest genuine polygon boundary within a farmland's pixel mask.
+        Only one contour is kept as a storage optimisation.
 
         Note: Farmlands split across multiple disconnected areas will lose its smaller pieces.
 
         :param mask: Boolean pixel mask for a single farmland.
-        :param coordinate_scale: Multiplier is applied to every vertex to
-            convert from the farmlands PNG's own pixel space into the
-            map's width/height space (see _extract_geometry). 1.0 for
-            maps where the farmlands PNG already matches the map size.
-        :return: List of [x, y] polygon vertices, or None if no contour was found.
+        :param coordinate_scale: Meters per farmlands-layer pixel. Scales every
+            vertex from the PNG's own pixel space into the map's width/height
+            space. 1.0 when the two already match.
+        :return: List of [x, y] polygon vertices, empty if no contour qualified.
         :raises cv2.error: If OpenCV fails to process the mask.
         """
-        contours, _ = cv2.findContours(mask.astype(np.uint8), cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        cleaned: np.ndarray = cls._clean_mask(mask)
 
-        if not contours:
-            return None
+        contours: tuple[np.ndarray, ...]
+        contours, _ = cv2.findContours(
+            cleaned, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
 
-        largest = max(contours, key=len)
-        simplified = cv2.approxPolyDP(largest, CONTOUR_EPSILON, True)
+        qualifying: list[np.ndarray] = [
+            contour for contour in contours
+            if cv2.contourArea(contour) >= cls.MIN_CONTOUR_PIXELS
+            and cls._fill_ratio(cleaned, contour) >= cls.MIN_CONTOUR_FILL_RATIO
+        ]
+
+        if not qualifying:
+            return []
+
+        largest: np.ndarray = max(qualifying, key=cv2.contourArea)
+        simplified: np.ndarray = cls._simplify(largest, coordinate_scale)
         coordinates: list = simplified.squeeze().tolist()
 
         # A single-point contour squeezes down to a flat [x, y] pair
@@ -304,6 +350,80 @@ class FarmlandBuilder(BaseMapLayerBuilder):
             ]
 
         return coordinates
+
+    @classmethod
+    def _clean_mask(cls, mask: np.ndarray) -> np.ndarray:
+        """
+        Remove the 1-2px borders that .grle to .png conversion smears along
+        field boundaries. Opening erases features thinner than the kernel and
+        leaves the field body untouched.
+
+        :param mask: Boolean pixel mask for a single farmland.
+        :return: Cleaned uint8 mask, 0 or 1 per pixel.
+        """
+        as_uint8: np.ndarray = mask.astype(np.uint8)
+
+        if not cls.OPENING_KERNEL_SIZE:
+            return as_uint8
+
+        kernel: np.ndarray = cv2.getStructuringElement(
+            cv2.MORPH_ELLIPSE, (cls.OPENING_KERNEL_SIZE, cls.OPENING_KERNEL_SIZE)
+        )
+        return cv2.morphologyEx(as_uint8, cv2.MORPH_OPEN, kernel)
+
+    @staticmethod
+    def _fill_ratio(mask: np.ndarray, contour: np.ndarray) -> float:
+        """
+        Measure how much of a contour's interior the farmland actually occupies.
+
+        :param mask: Cleaned mask for a single farmland.
+        :param contour: Contour to measure.
+        :return: The occupied fraction of the contour interior, 0.0 to ~1.0.
+        """
+        area: float = cv2.contourArea(contour)
+
+        if area <= 0:
+            return 0.0
+
+        bounds = cv2.boundingRect(contour)
+        x, y, width, height = bounds
+
+        interior: np.ndarray = np.zeros((height, width), dtype=np.uint8)
+        cv2.drawContours(interior, [contour], -1, 1, -1, offset=(-x, -y))
+
+        # Slicing the mask to the same window puts both arrays in the same
+        # coordinate space, so a bitwise AND leaves only the pixels that are
+        # both inside the polygon and belong to this farmland. Dividing that
+        # count by the polygon's own area gives the occupied fraction.
+        occupied: int = int((mask[y:y + height, x:x + width] & interior).sum())
+        return occupied / area
+
+    @classmethod
+    def _simplify(cls, contour: np.ndarray, coordinate_scale: float) -> np.ndarray:
+        """
+        Simplify a contour to within CONTOUR_TOLERANCE_METERS of its true shape.
+
+        :param contour: Raw contour from cv2.findContours.
+        :param coordinate_scale: Meters per farmlands-layer pixel, used to
+            convert the tolerance into the pixel space the contour lives in.
+        :return: Simplified contour.
+        """
+        # Tolerance is defined in map meters; approxPolyDP works in layer
+        # pixels, so divide by the meters-per-pixel scale to convert.
+        epsilon: float = max(
+            cls.MIN_CONTOUR_EPSILON, cls.CONTOUR_TOLERANCE_METERS / coordinate_scale
+        )
+
+        simplified: np.ndarray = cv2.approxPolyDP(contour, epsilon, True)
+
+        # Bounded: epsilon grows geometrically and any polygon degenerates to
+        # three or four points long before it reaches the perimeter.
+        perimeter: float = cv2.arcLength(contour, True)
+        while len(simplified) > cls.MAX_CONTOUR_VERTICES and epsilon < perimeter:
+            epsilon *= 1.5
+            simplified = cv2.approxPolyDP(contour, epsilon, True)
+
+        return simplified
 
     @staticmethod
     def _bounding_box(farmlands: list[Farmland]) -> dict:
