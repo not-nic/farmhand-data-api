@@ -1,7 +1,7 @@
 """
-Python module containing an image conversion service, for handling implementation
-with wand to convert .dds to .webp, and decoding GIANTS Engine .grle info layer
-files (Farming Simulator 22/25) into grayscale .png images.
+Python module containing an image conversion service, for handling image conversion
+for farming simulator. Wand is used for .dds to .webp conversion, and then an additional
+set of components to decode .grle info data into grayscale .png images as described below:
 
 GRLE format:
     Header (20 bytes, little-endian):
@@ -15,13 +15,13 @@ GRLE format:
         14-15 Reserved
         16-19 Compressed data size (informational)
 
-    RLE data (from byte 20):
+    GRLE data (from byte 20):
         - First byte is padding, skip it.
         - Read byte pairs (a, b):
             a == b -> a run: read count bytes (each 0xFF adds 255, the
                       first non-0xFF byte is the remainder), emit
                       (count + 2) copies.
-            a != b -> emit one copy of a, then back up one byte so b
+            a != b -> emit one copy of a then back-up one byte so b
                       becomes the next pair's first byte.
 """
 
@@ -70,7 +70,9 @@ class _RunLengthReader:
         return self
 
     def __next__(self) -> tuple[int, int]:
-        """Read and consume the next byte pair, or stop if none remain."""
+        """
+        Read and consume the next byte pair, or stop if none remain.
+        """
         if self._pos + 1 >= len(self._stream):
             raise StopIteration
 
@@ -79,17 +81,19 @@ class _RunLengthReader:
         return first, second
 
     def step_back(self) -> None:
-        """Rewind by one byte, used when a pair turns out to be a transition."""
+        """
+        Rewind by one byte, used when a 'pair' turns out to be a transition.
+        """
         self._pos -= 1
 
     def read_run_length(self) -> int:
         """
-        Read an extended run count: keep consuming bytes and adding each
-        one to the count, stopping after a byte that isn't the extension
-        marker. A run always represents at least GRLE_RUN_LENGTH_OFFSET
-        pixels, so that's added on at the end.
+        Read a run length that may span multiple bytes: each byte adds to
+        the total, and a byte equal to GRLE_EXTENSION_BYTE means "keep
+        reading." GRLE_RUN_LENGTH_OFFSET is added at the end as the minimum
+        run length.
 
-        :return: The decoded run length.
+        :return: (int) The decoded run length.
         """
         count: int = 0
         while self._pos < len(self._stream):

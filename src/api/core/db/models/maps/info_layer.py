@@ -16,8 +16,8 @@ from src.api.core.db.models._model_base import SqlAlchemyBase
 
 class InfoLayer(SqlAlchemyBase):
     """
-    A single info layer referenced in a map's i3d file, e.g. farmlands
-    or soilMap.
+    Database model for a maps info layer file found in a map.i3d file,
+    E.g. farmlands, environment, or soilmap.
 
     Attributes:
         id: UUID7 primary key.

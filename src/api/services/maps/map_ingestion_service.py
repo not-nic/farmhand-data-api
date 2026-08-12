@@ -163,9 +163,6 @@ class MapIngestionService:
     def reingest_map(self, map_id: int) -> None:
         """
         Manually trigger the re-ingestion of a map for a given Map ID.
-        Downloads, extracts, and re-parses XML/InfoLayers/Farmlands, and
-        resets ingestion flags so the async GRLE conversion and farmland
-        geometry jobs pick the fresh data back up.
 
         :param map_id: The ModHub ID of the map to reingest.
         :raises ValueError: If no map with the given ID exists in the database.

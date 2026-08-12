@@ -15,11 +15,10 @@ class FarmlandsXmlParser(BaseXmlParser[FarmlandsXmlModel]):
 
     def parse(self, content: bytes) -> FarmlandsXmlModel:
         """
-        Parse farmlands.xml bytes into a FarmlandsXmlModel.
+        Parse a farmlands.xml file into a FarmlandsXmlModel.
 
-        :param content: Raw bytes of the farmlands.xml file from S3.
-        :return: Parsed FarmlandsXmlModel.
-        :raises ParseError: If the content is not valid XML.
+        :param content: (bytes) Raw bytes of the farmlands.xml file from S3.
+        :return: (FarmlandsXmlModel) Parsed FarmlandsXmlModel.
         """
         root = self._load(content)
         farmlands_element = root.find("farmlands")
@@ -37,8 +36,8 @@ class FarmlandsXmlParser(BaseXmlParser[FarmlandsXmlModel]):
         """
         Get the map-wide price per hectare from the <farmlands> element.
 
-        :param farmlands_element: The <farmlands> element.
-        :return: The price per hectare, or None if not present.
+        :param farmlands_element: (Element) The <farmlands> element.
+        :return: (float) The price per hectare, or None if not present.
         """
         price_per_ha = farmlands_element.get("pricePerHa")
         return float(price_per_ha) if price_per_ha is not None else None
@@ -46,10 +45,10 @@ class FarmlandsXmlParser(BaseXmlParser[FarmlandsXmlModel]):
     @staticmethod
     def _get_farmlands(farmlands_element: Element) -> list[FarmlandXmlEntryModel]:
         """
-        Get every <farmland> entry from the <farmlands> element.
+        Get each farmland from a given element.
 
-        :param farmlands_element: The <farmlands> element.
-        :return: List of parsed FarmlandXmlEntryModel entries.
+        :param farmlands_element: (Element) The <farmlands> element.
+        :return: (list) of parsed FarmlandXmlEntryModel entries.
         """
         return [
             FarmlandXmlEntryModel(

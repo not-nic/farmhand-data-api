@@ -48,6 +48,8 @@ class FarmlandResponse(BaseModel):
     default: bool = False
     size_ha: float | None = None
     coordinates: list | None = None
+
+    # commented this out until the data-api parses soil maps.
     # soil_types: list[SoilTypeResponse] = []
     area_types: dict[str, float] | None = None
 

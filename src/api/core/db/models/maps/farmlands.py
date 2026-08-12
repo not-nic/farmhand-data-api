@@ -1,5 +1,5 @@
 """
-SQLAlchemy model for a single farmland on a map.
+SQLAlchemy model for map farmland.
 """
 
 from typing import TYPE_CHECKING
@@ -16,21 +16,20 @@ from src.api.core.db.models._model_base import SqlAlchemyBase
 
 class Farmland(SqlAlchemyBase):
     """
-    A single farmland on a map, combining data from the i3d Option list
-    and farmlands.xml. coordinates and size_ha are left null until the
-    farmland geometry extraction job backfills them from the converted
-    farmlands GRLE/PNG.
+    Database model for a maps farmland, it combines data from the map.i3d
+    file, farmlands.xml, and the infoLayer_farmlands.grle to get farmland
+    coordinates and size.
 
     Attributes:
         id: UUID7 primary key.
         map_id: Foreign key to the parent Map.
         info_layer_id: Foreign key to the farmlands InfoLayer.
-        number: Option value in i3d == farmland id in xml == GRLE bitmask value.
-        price_per_ha: From <farmlands pricePerHa="...">, same for every row on this map.
-        price_scale: Per-farmland price multiplier from farmlands.xml.
+        number: The farmland number.
+        price_per_ha: The price of the farmland per hectare.
+        price_scale: Price multiplier for each farmland.
         default: Whether this farmland is owned at the start of a new save.
-        coordinates: Polygon vertex data, null until geometry extraction runs.
-        size_ha: Farmland area in hectares, null until geometry extraction runs.
+        coordinates: Polygon vertex data.
+        size_ha: Farmland area in hectares.
     """
 
     __tablename__ = "map_farmlands"

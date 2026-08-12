@@ -2,7 +2,6 @@ from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 
-from src.api.builder.environment_builder import EnvironmentBuilder
 from src.api.builder.farmland_builder import FarmlandBuilder
 from src.api.core.dependencies import SessionDep
 from src.api.core.schema.maps.farmlands import FarmlandRescaleRequest
@@ -74,8 +73,8 @@ async def rescale_farmlands(
     Apply a linear scale+offset transform to a map's stored farmland
     coordinates.
 
-    Intended to be used by a private frontend to the data-api to visually
-    adjust a maps overview, farmland size, or any other data and overwrite it
+    Intended to be used by a frontend to the data-api to visually adjust
+    a maps overview, farmland size, or any other data and overwrite it
     with a scaling factor.
 
     :param mod_id: The ModHub ID of the map whose farmlands to rescale.
@@ -151,11 +150,3 @@ async def delete_zip_archives(
     """
     background_tasks.add_task(MapExtractionService(db=db).delete_zip_archives)
     return {"message": "Started deleting zip archives from S3"}
-
-
-@router.get("/data/farmlands/{map_id}/area-types", status_code=status.HTTP_200_OK)
-async def get_farmland_area_types(map_id: int, db: SessionDep):
-    """
-    (temp) Compute area type composition for a map's farmlands without persisting.
-    """
-    return EnvironmentBuilder(db).get_environment_composition(map_id)

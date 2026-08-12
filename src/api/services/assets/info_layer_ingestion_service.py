@@ -29,7 +29,7 @@ class InfoLayerIngestionService:
 
     def process_info_layers(self) -> None:
         """
-        Convert every pending info layer's .grle into a .png, replacing it in the ingest bucket.
+        Convert pending info layer .grle into .pngs.
         """
         pending = self.info_layer_repository.get_pending()
 
@@ -59,10 +59,10 @@ class InfoLayerIngestionService:
 
     def _convert_layer(self, layer: InfoLayer) -> None:
         """
-        Download a single info layer's .grle, convert it to .png, and
-        replace the result back into the ingest bucket.
+        Convert an info layer from its .grle format to .png replacing the
+        result back into the ingest-bucket.
 
-        :param layer: The InfoLayer to convert.
+        :param layer: (InfoLayer) The InfoLayer to convert.
         """
         map_obj: Map = self.map_service.get_map_by_id(layer.map_id)
 
@@ -88,6 +88,7 @@ class InfoLayerIngestionService:
             is_ingested=True,
         )
 
+        # attempt to delete the grle image.
         try:
             self.aws_service.delete_object(key=grle_key)
         except ClientError as exc:

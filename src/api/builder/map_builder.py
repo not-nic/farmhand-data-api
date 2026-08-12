@@ -1,21 +1,23 @@
 """
-Python module containing MapBuilder, which orchestrates every
-registered map layer builder. Add a new builder here to add a new
-derived data layer (soil composition, fields, etc.), without growing
-any individual builder.
+Python module containing a MapBuilder, which coordinates a set of
+layer builders(e.g. farmland, environment, soil maps) that each
+transform .i3d and infoLayer data into a 'map'.
+
+The resulting map data can be queried via the farmhand APIs and
+rendered on the frontend.
 """
 
 from sqlalchemy.orm import Session
 
-from src.api.builder.environment_builder import EnvironmentBuilder
 from src.api.builder.base_layer_builder import BaseMapLayerBuilder
+from src.api.builder.environment_builder import EnvironmentBuilder
 from src.api.builder.farmland_builder import FarmlandBuilder
 from src.api.core.logger import logger
 
 
 class MapBuilder:
     """
-    Runs every registered map layer builder's process_pending().
+    Used to create map data from infoLayer files and the map i3d.
     """
 
     def __init__(self, db: Session) -> None:
@@ -29,9 +31,7 @@ class MapBuilder:
 
     def process_pending(self) -> None:
         """
-        Run every registered builder's pending work, in order. A
-        builder that fails unexpectedly is logged and skipped, so one
-        broken layer doesn't prevent the others from running.
+        Run every layer builder to create map information.
         """
         for builder in self.builders:
             try:

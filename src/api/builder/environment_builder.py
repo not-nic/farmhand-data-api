@@ -38,7 +38,7 @@ class EnvironmentBuilder(BaseMapLayerBuilder):
         Compute and persist the environment composition for every farmland.
         """
 
-        pending: list[Farmland] = self.farmland_repository.get_pending_area_types()
+        pending: list[Farmland] = self.farmland_repository.get_pending_environment()
 
         if not pending:
             return

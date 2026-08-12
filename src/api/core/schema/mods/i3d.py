@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 class InfoLayerOptionModel(BaseModel):
     """
-    A single value/name Option entry within an InfoLayer Group.
+    A Model containing a value/name Option entry for an InfoLayer Group.
     """
 
     value: int
@@ -16,10 +16,8 @@ class InfoLayerOptionModel(BaseModel):
 
 class InfoLayerGroupModel(BaseModel):
     """
-    A single Group within an InfoLayer. InfoLayers can pack multiple
-    Groups into different bit ranges of the same pixel value — decode
-    a raw value against a specific group using first_channel/num_channels
-    rather than treating the value as a direct Option lookup.
+    Pydantic model for an InfoLayer Group. InfoLayers can pack multiple
+    groups into different bit ranges of the same pixel value.
     """
 
     name: str
@@ -29,10 +27,10 @@ class InfoLayerGroupModel(BaseModel):
 
     def decode(self, raw_value: int) -> int:
         """
-        Extract this group's bits from a raw multi-channel pixel value.
-        :param raw_value: The full raw pixel value from the GRLE.
-        :return: This group's own value, isolated from any other groups
-            packed into the same pixel.
+        Extract this group's bits from a raw multichannel pixel value.
+
+        :param raw_value: (int) The full raw pixel value from the GRLE.
+        :return: (int) This group's own value packed into the same pixel.
         """
         mask = (1 << self.num_channels) - 1
         return (raw_value >> self.first_channel) & mask
@@ -40,7 +38,7 @@ class InfoLayerGroupModel(BaseModel):
 
 class InfoLayerModel(BaseModel):
     """
-    A single info layer discovered in a map's map.i3d file.
+    Pydantic model representing a layer model from a map.i3d.
     """
 
     layer_key: str
@@ -51,9 +49,7 @@ class InfoLayerModel(BaseModel):
 
 class I3dModel(BaseModel):
     """
-    Aggregated result of parsing an .i3d file. Generic across entity
-    types (maps, vehicles, placeables) — new extraction methods add
-    their own field here as they're built.
+    Pydantic model representing an map.i3d file.
     """
 
     info_layers: list[InfoLayerModel] = Field(default_factory=list)

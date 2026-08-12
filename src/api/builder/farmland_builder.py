@@ -1,6 +1,6 @@
 """
-Python module containing a builder to extract farmland geometry
-(coordinates and size) from a converted infoLayer_farmlands.grle / .png.
+Python module containing a 'map' builder component to create farmlands from a
+given map and its 'infoLayer_farmlands.grle'.
 """
 
 import time
@@ -19,11 +19,12 @@ from src.api.constants import IngestionStatus
 from src.api.core.db.models import Farmland, InfoLayer, Map
 from src.api.core.logger import logger
 from src.api.core.repositories.farmland_repository import FarmlandRepository
+from src.api.core.schema.mods.i3d import I3dModel
 
 
 class FarmlandBuilder(BaseMapLayerBuilder):
     """
-    Builds farmland coordinates and size from a converted .grle file.
+    Class to create farmlands from a map's 'infoLayer_farmlands.grle' file.
     """
 
     # The furthest a stored vertex may sit from the farmland boundary.
@@ -91,13 +92,9 @@ class FarmlandBuilder(BaseMapLayerBuilder):
         """
         Extract and persist geometry for every farmland on a single map.
 
-        :param map_id: The map to process.
-        :param farmlands_asset_uri: S3 URI of the converted farmlands PNG.
-        :param farmlands: The map's farmlands awaiting geometry.
-
-        :raises ClientError: If an S3 fetch fails.
-        :raises ParseError: If map.i3d is not valid XML.
-        :raises UnidentifiedImageError: If the farmlands PNG is unreadable.
+        :param map_id: (int) The map to process.
+        :param farmlands_asset_uri: (str) S3 URI of the converted farmlands PNG.
+        :param farmlands: (list) The map's farmlands awaiting geometry.
         """
         map_obj: Map | None = self.map_service.get_map_by_id(map_id)
 
@@ -188,13 +185,12 @@ class FarmlandBuilder(BaseMapLayerBuilder):
         This is used within the /rescale data endpoint used to resize a map with manual
         effort to match its overview image if they do not already match.
 
-        :param map_id: The map whose farmlands should be rescaled.
-        :param offset_x: X offset to add after scaling.
-        :param offset_y: Y offset to add after scaling.
-        :param scale_x: X scale factor, applied before the offset.
-        :param scale_y: Y scale factor, applied before the offset.
-        :return: Summary dict with the count affected and before/after bounding boxes.
-        :raises ValueError: If the map has no farmlands with existing coordinates.
+        :param map_id: (int) The map whose farmlands should be rescaled.
+        :param offset_x: (float) X offset to add after scaling.
+        :param offset_y: (float) Y offset to add after scaling.
+        :param scale_x: (float) X scale factor, applied before the offset.
+        :param scale_y: (float) Y scale factor, applied before the offset.
+        :return: (dict) with the count affected and before/after bounding boxes.
         """
         farmlands: list[Farmland] = self.farmland_repository.get_by_map_id(map_id)
         farmlands_with_geometry: list[Farmland] = [f for f in farmlands if f.coordinates]
@@ -243,13 +239,12 @@ class FarmlandBuilder(BaseMapLayerBuilder):
             unbuyable_values: set[int],
     ) -> dict[int, dict]:
         """
-        Extract per-farmland coordinates and size from a farmlands pixel array.
+        Extract the coordinates of a map's farmland and its size in hectares.
 
-        :param pixels: Greyscale farmlands pixel array.
-        :param map_width_meters: The map's pixel width, used to scale pixel measurements
-            into real-world hectares AND to normalise farmland coordinates into the same space.
-        :param unbuyable_values: Pixel values to exclude, from _get_unbuyable_values.
-        :return: {farmland_number: {"coordinates": ..., "size_ha": ...}}
+        :param pixels: (np.ndarray) A farmlands pixel array.
+        :param map_width_meters: (int) The map's pixel width that has been scaled into meters.
+        :param unbuyable_values: (set[int]) Pixel values to exclude.
+        :return: (dict) of the coordinates and the map's size.
         """
         info_layer_width_px: int = pixels.shape[1]
         pixels_per_hectare: float = self._pixels_per_hectare(info_layer_width_px, map_width_meters)
@@ -288,13 +283,12 @@ class FarmlandBuilder(BaseMapLayerBuilder):
     @staticmethod
     def _pixels_per_hectare(image_width_px: int, map_width_meters: int) -> float:
         """
-        Calculate how many pixels make up one hectare, based on the
-        map's real-world width relative to the info layer's resolution.
+        Calculate how many pixels make up one hectare, based on the map's width
+        relative to the info layer's resolution.
 
-        :param image_width_px: Width of the farmlands PNG in pixels.
-        :param map_width_meters: The map's pixel width in meters.
-        :return: Pixels per hectare.
-        :raises ZeroDivisionError: If image_width_px is 0 (corrupt/empty image).
+        :param image_width_px: (int) Width of the farmlands PNG in pixels.
+        :param map_width_meters: (int) The map's pixel width in meters.
+        :return: (float) Pixels per hectare.
         """
         meters_per_pixel: float = map_width_meters / image_width_px
         return 10_000 / (meters_per_pixel ** 2)
@@ -306,17 +300,17 @@ class FarmlandBuilder(BaseMapLayerBuilder):
             coordinate_scale: float = 1.0
     ) -> list[list[int]]:
         """
-        Find the largest genuine polygon boundary within a farmland's pixel mask.
-        Only one contour is kept as a storage optimisation.
+        Find the largest polygon boundary within a map's farmland pixel mask.
+        Only one contour is kept to keep the storage size small.
 
         Note: Farmlands split across multiple disconnected areas will lose its smaller pieces.
 
-        :param mask: Boolean pixel mask for a single farmland.
-        :param coordinate_scale: Meters per farmlands-layer pixel. Scales every
+        :param mask: (np.ndarray) Boolean pixel mask for a farmland.
+        :param coordinate_scale: (float) Meters per farmlands-layer pixel. Scales every
             vertex from the PNG's own pixel space into the map's width/height
             space. 1.0 when the two already match.
-        :return: List of [x, y] polygon vertices, empty if no contour qualified.
-        :raises cv2.error: If OpenCV fails to process the mask.
+
+        :return: (list) [x, y] polygon vertices, empty if no contour qualified.
         """
         cleaned: np.ndarray = cls._clean_mask(mask)
 
@@ -358,8 +352,8 @@ class FarmlandBuilder(BaseMapLayerBuilder):
         field boundaries. Opening erases features thinner than the kernel and
         leaves the field body untouched.
 
-        :param mask: Boolean pixel mask for a single farmland.
-        :return: Cleaned uint8 mask, 0 or 1 per pixel.
+        :param mask: (np.ndarray) Boolean pixel mask for a farmland.
+        :return: (np.ndarray) Cleaned uint8 mask, 0 or 1 per pixel.
         """
         as_uint8: np.ndarray = mask.astype(np.uint8)
 
@@ -376,9 +370,9 @@ class FarmlandBuilder(BaseMapLayerBuilder):
         """
         Measure how much of a contour's interior the farmland actually occupies.
 
-        :param mask: Cleaned mask for a single farmland.
-        :param contour: Contour to measure.
-        :return: The occupied fraction of the contour interior, 0.0 to ~1.0.
+        :param mask: (np.ndarray) Cleaned mask for a farmland.
+        :param contour: (np.ndarray) Contour to measure.
+        :return: (float) The occupied fraction of the contour interior, 0.0 to ~1.0.
         """
         area: float = cv2.contourArea(contour)
 
@@ -403,10 +397,10 @@ class FarmlandBuilder(BaseMapLayerBuilder):
         """
         Simplify a contour to within CONTOUR_TOLERANCE_METERS of its true shape.
 
-        :param contour: Raw contour from cv2.findContours.
-        :param coordinate_scale: Meters per farmlands-layer pixel, used to
+        :param contour: (np.ndarray) Raw contour from cv2.findContours.
+        :param coordinate_scale: (float) Meters per farmlands-layer pixel, used to
             convert the tolerance into the pixel space the contour lives in.
-        :return: Simplified contour.
+        :return: (np.ndarray) Simplified contour.
         """
         # Tolerance is defined in map meters; approxPolyDP works in layer
         # pixels, so divide by the meters-per-pixel scale to convert.
@@ -426,22 +420,43 @@ class FarmlandBuilder(BaseMapLayerBuilder):
         return simplified
 
     @staticmethod
+    def _get_unbuyable_values(parsed_i3d: I3dModel) -> set[int] | None:
+        """
+        Resolve which pixel value represents unbuyable/reserved area for
+        this map.
+
+        Maps typically use the last entry (e.g. value=255) as the non-buyable
+        land.
+
+        :param parsed_i3d (I3dModel): The map's parsed I3dModel, from _parse_i3d.
+        :return: (set) of pixel values to exclude, or None if it couldn't be resolved.
+        """
+        for layer in parsed_i3d.info_layers:
+            if layer.layer_key != FARMLANDS_LAYER_KEY:
+                continue
+            for group in layer.groups:
+                if group.options:
+                    return {0, group.options[-1].value}
+
+        return None
+
+    @staticmethod
     def _bounding_box(farmlands: list[Farmland]) -> dict:
         """
         Compute the combined min/max x/y bounds across a list of farmlands.
 
-        :param farmlands: Farmlands to include, each with a `coordinates` list.
-        :return: {"min_x", "min_y", "max_x", "max_y"} in the same units as the input coordinates.
+        :param farmlands: (list) Farmlands with coordinates.
+        :return: (dict) of the min and max x, y values.
         """
         return FarmlandBuilder._bounding_box_from_coords(f.coordinates for f in farmlands)
 
     @staticmethod
     def _bounding_box_from_coords(coordinate_lists: Iterable[list]) -> dict:
         """
-        Compute the combined min/max x/y bounds across several coordinate lists.
+        Compute the combined min/max x/y bounds across coordinate lists.
 
-        :param coordinate_lists: Iterable of coordinate lists, each a list of [x, y] pairs.
-        :return: {"min_x", "min_y", "max_x", "max_y"}, or all None if empty.
+        :param coordinate_lists: (Iterable[list]) of coordinate lists with [x, y] pairs.
+        :return: (dict) of the min and max x, y values.
         """
         coordinate_lists = list(coordinate_lists)
         xs: list[int] = [x for coords in coordinate_lists for x, _ in coords]

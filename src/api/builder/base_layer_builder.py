@@ -1,8 +1,5 @@
 """
-Python module containing a base class for map layer builders — small,
-focused classes that each compute and persist one piece of derived map
-data (farmland geometry, area type composition, etc), orchestrated by
-MapBuilder.
+Python module containing an abstract base class for map layer builders.
 """
 
 from abc import ABC, abstractmethod
@@ -14,7 +11,7 @@ from sqlalchemy.orm import Session
 
 from src.api.core.db.models import Map
 from src.api.core.repositories.info_layer_repository import InfoLayerRepository
-from src.api.core.schema.mods.i3d import I3dModel, InfoLayerGroupModel
+from src.api.core.schema.mods.i3d import I3dModel
 from src.api.parsers.xml.i3d_parser import I3dParser
 from src.api.services.aws.aws_service import AwsService
 from src.api.services.maps.map_service import MapService
@@ -25,8 +22,8 @@ ENVIRONMENT_LAYER_KEY = "environment"
 
 class BaseMapLayerBuilder(ABC):
     """
-    Base class for a single map layer builder. Subclasses implement
-    process_pending() to compute and persist their own derived data.
+    Base class for a single map layer builder, requires each implementation
+    to implement process_pending() to handle each layer within amap.
     """
 
     def __init__(self, db: Session) -> None:
@@ -37,14 +34,16 @@ class BaseMapLayerBuilder(ABC):
     @property
     def name(self) -> str:
         """
-        Name property used for consistent log prefixing across builders.
+        A name property for each subclass.
         :return: (str) the concrete builder class name.
         """
         return self.__class__.__name__
 
     @abstractmethod
     def process_pending(self) -> None:
-        """Process every map with pending work for this layer."""
+        """
+        Process every map with pending work for this layer.
+        """
         pass
 
     def _parse_i3d(self, map_obj: Map) -> I3dModel | None:
@@ -74,23 +73,3 @@ class BaseMapLayerBuilder(ABC):
         """
         image = Image.open(BytesIO(image_bytes)).convert("L")
         return np.array(image)
-
-    @staticmethod
-    def _get_unbuyable_values(parsed_i3d: I3dModel) -> set[int] | None:
-        """
-        Resolve which pixel value represents unbuyable/reserved area for
-        this map. Farmland Option lists conventionally end with the
-        reserved entry last (e.g. value="255" name="Not buyable"), so
-        the last option's value is used.
-
-        :param parsed_i3d: The map's parsed I3dModel, from _parse_i3d.
-        :return: Set of pixel values to exclude, or None if it couldn't be resolved.
-        """
-        for layer in parsed_i3d.info_layers:
-            if layer.layer_key != FARMLANDS_LAYER_KEY:
-                continue
-            for group in layer.groups:
-                if group.options:
-                    return {0, group.options[-1].value}
-
-        return None

@@ -28,9 +28,8 @@ class I3dParser(BaseXmlParser[I3dModel]):
         """
         Parse .i3d bytes into an I3dModel.
 
-        :param content: Raw bytes of the .i3d file from S3.
-        :return: Parsed I3dModel.
-        :raises ParseError: If the content is not valid XML.
+        :param content: (bytes) Raw bytes of the .i3d file from S3.
+        :return: (I3dModel) A Parsed I3d file.
         """
         root = self._load(content)
         files = self._get_files(root)
@@ -42,14 +41,10 @@ class I3dParser(BaseXmlParser[I3dModel]):
     @staticmethod
     def _get_files(root: Element) -> dict[str, str]:
         """
-        Get the fileId -> filename lookup from the i3d's <Files> block.
-        Filenames are stripped of any directory prefix, and the extension
-        is forced to .grle — the <Files> block sometimes lists .png, but
-        the actual exported file is always a GRLE bitmask regardless of
-        what extension is declared there.
+        Get the fileIds and corresponding filename from an i3d file.
 
-        :param root: The root element of the parsed .i3d file.
-        :return: Dict mapping fileId to its .grle filename.
+        :param root: (Element) The root element of the parsed .i3d file.
+        :return: (dict) mapping fileId to its .grle filename.
         """
         files = {}
         for file in root.iter("File"):
@@ -69,9 +64,9 @@ class I3dParser(BaseXmlParser[I3dModel]):
         """
         Get info layers from an i3d file.
 
-        :param root: The root element of the parsed .i3d file.
-        :param files: fileId -> filename lookup from _get_files.
-        :return: List of parsed InfoLayerModel entries.
+        :param root: (Element) The root element of the parsed .i3d file.
+        :param files: (dict) A dict of files from the i3d file.
+        :return: (list) of parsed InfoLayerModel entries.
         """
         valid_lower = {name.lower() for name in self.valid_info_layers}
 
@@ -87,7 +82,7 @@ class I3dParser(BaseXmlParser[I3dModel]):
                 InfoLayerModel(
                     layer_key=name,
                     i3d_file_id=file_id,
-                    grle_filename=files.get(file_id, self._guess_filename(name)),
+                    grle_filename=files.get(file_id, f"infoLayer_{name}.grle"),
                     groups=self._get_groups(element),
                 )
             )
@@ -97,13 +92,10 @@ class I3dParser(BaseXmlParser[I3dModel]):
     @staticmethod
     def _get_groups(info_layer_element: Element) -> list[InfoLayerGroupModel]:
         """
-        Get every Group directly under an InfoLayer, each with its own
-        channel offset and Option list. An InfoLayer can pack multiple
-        Groups into different bit ranges of the same pixel value, so
-        Options are kept scoped per-group rather than flattened together.
+        Get groups from within an InfoLayer.
 
-        :param info_layer_element: The <InfoLayer> element to search within.
-        :return: List of parsed InfoLayerGroupModel entries.
+        :param info_layer_element: (Element) The <InfoLayer> element to search within.
+        :return: (list) of parsed InfoLayerGroupModel entries.
         """
         groups = []
         for group_element in info_layer_element.findall("Group"):
@@ -123,15 +115,3 @@ class I3dParser(BaseXmlParser[I3dModel]):
             )
 
         return groups
-
-    @staticmethod
-    def _guess_filename(layer_key: str) -> str:
-        """
-        Fallback filename if the layer's fileId isn't found in <Files>.
-        Not reliable — actual filenames vary too much across maps
-        (farmland vs farmlands, soilMap vs soilMaps, .grle vs .png).
-
-        :param layer_key: The name of the layer.
-        :return: A best-guess infoLayer filename.
-        """
-        return f"infoLayer_{layer_key}.grle"

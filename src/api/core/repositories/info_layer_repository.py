@@ -19,7 +19,8 @@ class InfoLayerRepository(Repository[InfoLayer]):
     def get_pending(self) -> list[InfoLayer]:
         """
         Get assets registered but not yet converted and uploaded.
-        :return: List of assets that are not ingested.
+
+        :return: (list) of assets that are not ingested.
         """
         query = self.db.query(self.model).filter(self.model.is_ingested.is_(False))
         return query.all()
@@ -27,8 +28,9 @@ class InfoLayerRepository(Repository[InfoLayer]):
     def get_by_map_id(self, map_id: int) -> list[InfoLayer]:
         """
         Get all info layers for a given map.
-        :param map_id: The map ID to look up.
-        :return: List of info layers belonging to the map.
+
+        :param map_id: (int) The map ID to look up.
+        :return: (list) of info layers belonging to the map.
         """
         return self.db.query(self.model).filter(self.model.map_id == map_id).all()
 
@@ -36,9 +38,9 @@ class InfoLayerRepository(Repository[InfoLayer]):
         """
         Get a MapInfoLayer for a given map by its layer_key.
 
-        :param map_id: The map ID to look up.
-        :param layer_key: The InfoLayer name, e.g. 'farmlands' or 'soilMap'.
-        :return: MapInfoLayer if it exists, else None.
+        :param map_id: (int) The map ID to look up.
+        :param layer_key: (str) The InfoLayer name, e.g. 'farmlands' or 'soilMap'.
+        :return: (MapInfoLayer) if it exists.
         """
         return (
             self.db.query(self.model)
@@ -54,13 +56,13 @@ class InfoLayerRepository(Repository[InfoLayer]):
             i3d_file_id: str | None = None,
     ) -> InfoLayer:
         """
-        Create or update the InfoLayer for the given map and layer_key.
+        Upsert the InfoLayer for the given map and layer_key.
 
-        :param map_id: The map ID to upsert an InfoLayer for.
-        :param layer_key: The InfoLayer name, e.g. 'farmlands' or 'soilMap'.
-        :param grle_filename: Filename of the source GRLE.
-        :param i3d_file_id: fileId referenced in map.i3d for this layer.
-        :return: The created or updated InfoLayer.
+        :param map_id: (int) The map ID to upsert an InfoLayer for.
+        :param layer_key: (str) The InfoLayer name, e.g. 'farmlands' or 'soilMap'.
+        :param grle_filename: (str) Filename of the source GRLE.
+        :param i3d_file_id: (str) fileId referenced in map.i3d for this layer.
+        :return: (InfoLayer) The created or updated InfoLayer.
         """
         existing = self.get_by_map_and_key(map_id, layer_key)
 
