@@ -7,7 +7,7 @@ any individual builder.
 
 from sqlalchemy.orm import Session
 
-from src.api.builder.area_type_builder import AreaTypeBuilder
+from src.api.builder.environment_builder import EnvironmentBuilder
 from src.api.builder.base_layer_builder import BaseMapLayerBuilder
 from src.api.builder.farmland_builder import FarmlandBuilder
 from src.api.core.logger import logger
@@ -20,11 +20,11 @@ class MapBuilder:
 
     def __init__(self, db: Session) -> None:
         self.farmland_builder: FarmlandBuilder = FarmlandBuilder(db)
-        self.area_type_builder: AreaTypeBuilder = AreaTypeBuilder(db)
+        self.environment_builder: EnvironmentBuilder = EnvironmentBuilder(db)
 
         self.builders: list[BaseMapLayerBuilder] = [
             self.farmland_builder,
-            self.area_type_builder,
+            self.environment_builder,
         ]
 
     def process_pending(self) -> None:

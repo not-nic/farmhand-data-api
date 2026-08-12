@@ -94,21 +94,3 @@ class BaseMapLayerBuilder(ABC):
                     return {0, group.options[-1].value}
 
         return None
-
-    @staticmethod
-    def _get_area_type_group(parsed_i3d: I3dModel) -> InfoLayerGroupModel | None:
-        """
-        Get the environment layer's 'Area Type' group specifically —
-        not the 'Water' group also present on the same layer.
-
-        :param parsed_i3d: The map's parsed I3dModel, from _parse_i3d.
-        :return: The Area Type InfoLayerGroupModel, or None if not found.
-        """
-        for layer in parsed_i3d.info_layers:
-            if layer.layer_key != ENVIRONMENT_LAYER_KEY:
-                continue
-            for group in layer.groups:
-                if group.name == "Area Type":
-                    return group
-
-        return None

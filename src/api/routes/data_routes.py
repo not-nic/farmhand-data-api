@@ -2,7 +2,7 @@ from typing import Literal
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 
-from src.api.builder.area_type_builder import AreaTypeBuilder
+from src.api.builder.environment_builder import EnvironmentBuilder
 from src.api.builder.farmland_builder import FarmlandBuilder
 from src.api.core.dependencies import SessionDep
 from src.api.core.schema.maps.farmlands import FarmlandRescaleRequest
@@ -158,4 +158,4 @@ async def get_farmland_area_types(map_id: int, db: SessionDep):
     """
     (temp) Compute area type composition for a map's farmlands without persisting.
     """
-    return AreaTypeBuilder(db).get_area_type_composition(map_id)
+    return EnvironmentBuilder(db).get_environment_composition(map_id)
