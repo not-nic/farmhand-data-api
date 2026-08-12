@@ -20,6 +20,8 @@ from src.api.tasks.scheduler import JobModel, Scheduler
 
 base_scheduler = Scheduler()
 
+
+# Get New Maps
 base_scheduler.add_job(JobModel(
     func=get_new_maps,
     trigger=CronTrigger(hour=14, minute=30),
@@ -29,6 +31,7 @@ base_scheduler.add_job(JobModel(
 ))
 
 
+# Download Maps
 base_scheduler.add_job(JobModel(
     func=download_pending_maps,
     trigger=IntervalTrigger(
@@ -43,6 +46,7 @@ base_scheduler.add_job(JobModel(
 ))
 
 
+# Downloaded File Extraction
 base_scheduler.add_job(JobModel(
     func=extract_files_from_maps,
     trigger=IntervalTrigger(
@@ -55,9 +59,10 @@ base_scheduler.add_job(JobModel(
 ))
 
 
+# XML Parsers & Map Generation.
 base_scheduler.add_job(JobModel(
     func=parse_map_xml,
-    trigger=IntervalTrigger(minutes=1),
+    trigger=IntervalTrigger(seconds=30),
     id="parse_map_xml",
     name="Parse modDesc.xml for extracted maps",
     group="pipeline",
@@ -73,20 +78,10 @@ base_scheduler.add_job(JobModel(
 ))
 
 
-base_scheduler.add_job(JobModel(
-    func=retry_stalled_downloads,
-    trigger=CronTrigger(minute=0),
-    id="retry_stalled_downloads",
-    name="Reset stalled DOWNLOADING maps back to PENDING",
-    group="recovery",
-    enabled=False
-))
-
-
-# Image Conversion
+# Image Conversion pipeline stages
 base_scheduler.add_job(JobModel(
     func=generate_map_assets,
-    trigger=IntervalTrigger(minutes=1),
+    trigger=IntervalTrigger(seconds=30),
     id="generate_map_assets",
     name="Convert and upload pending map assets",
     group="pipeline",
@@ -99,4 +94,15 @@ base_scheduler.add_job(JobModel(
     id="process_info_layers",
     name="Convert pending info layer GRLE files to PNG",
     group="pipeline",
+))
+
+
+# Recover stalled downloads.
+base_scheduler.add_job(JobModel(
+    func=retry_stalled_downloads,
+    trigger=CronTrigger(minute=0),
+    id="retry_stalled_downloads",
+    name="Reset stalled DOWNLOADING maps back to PENDING",
+    group="recovery",
+    enabled=False
 ))

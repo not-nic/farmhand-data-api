@@ -8,7 +8,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 
 from bs4 import BeautifulSoup, Tag
-from httpx2 import AsyncClient, Client, HTTPError, HTTPStatusError, Response, stream, ConnectTimeout
+from httpx2 import AsyncClient, Client, ConnectTimeout, HTTPError, HTTPStatusError, Response, stream
 
 from src.api.constants import ModHubLabels
 from src.api.core.config import settings

@@ -5,20 +5,20 @@ Python module containing a builder to extract farmland geometry
 
 import time
 from collections import defaultdict
-from typing import Iterable
+from collections.abc import Iterable
 
 import cv2
 import numpy as np
 from sqlalchemy.orm import Session
 
+from src.api.builder.base_layer_builder import (
+    FARMLANDS_LAYER_KEY,
+    BaseMapLayerBuilder,
+)
 from src.api.constants import IngestionStatus
 from src.api.core.db.models import Farmland, InfoLayer, Map
 from src.api.core.logger import logger
 from src.api.core.repositories.farmland_repository import FarmlandRepository
-from src.api.builder.base_layer_builder import (
-    BaseMapLayerBuilder,
-    FARMLANDS_LAYER_KEY,
-)
 
 
 class FarmlandBuilder(BaseMapLayerBuilder):

@@ -9,15 +9,15 @@ import numpy as np
 from PIL import Image
 from sqlalchemy.orm import Session
 
+from src.api.builder.base_layer_builder import (
+    ENVIRONMENT_LAYER_KEY,
+    FARMLANDS_LAYER_KEY,
+    BaseMapLayerBuilder,
+)
 from src.api.constants import AreaType, IngestionStatus
 from src.api.core.db.models import Farmland, InfoLayer, Map
 from src.api.core.logger import logger
 from src.api.core.repositories.farmland_repository import FarmlandRepository
-from src.api.builder.base_layer_builder import (
-    BaseMapLayerBuilder,
-    ENVIRONMENT_LAYER_KEY,
-    FARMLANDS_LAYER_KEY,
-)
 
 
 class AreaTypeBuilder(BaseMapLayerBuilder):
@@ -185,7 +185,7 @@ class AreaTypeBuilder(BaseMapLayerBuilder):
                 self._area_type_key(area_type_names.get(int(area_value))): round(
                     (count / total_pixels) * 100, 2
                 )
-                for area_value, count in zip(area_values, counts)
+                for area_value, count in zip(area_values, counts, strict=True)
             }
 
         return composition
