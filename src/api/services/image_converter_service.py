@@ -11,18 +11,21 @@ GRLE format:
         8-9   Reserved
         10-11 Height / 256 (u16)
         12    Reserved
-        13    Channels (always 1)
+        13    Channels, i.e. bytes per pixel (1 or 2)
         14-15 Reserved
         16-19 Compressed data size (informational)
 
     GRLE data (from byte 20):
         - First byte is padding, skip it.
-        - Read byte pairs (a, b):
-            a == b -> a run: read count bytes (each 0xFF adds 255, the
-                      first non-0xFF byte is the remainder), emit
-                      (count + 2) copies.
-            a != b -> emit one copy of a then back-up one byte so b
-                      becomes the next pair's first byte.
+        - Each pixel occupies `channels` little-endian bytes: one byte for a
+          single channel file, two for a map whose values exceed 255 (e.g. a
+          farmland layer with more than 255 farmlands).
+        - Read pixel pairs (a, b):
+            a == b -> a run: read count pixels (each all-0xFF pixel adds its
+                      maximum value, the first pixel below that maximum is
+                      the remainder), emit (count + 2) copies.
+            a != b -> emit one copy of a then back-up one pixel so b
+                      becomes the next pair's first pixel.
 """
 
 import struct
@@ -40,67 +43,85 @@ GRLE_MAGIC = b"GRLE"
 GRLE_SUPPORTED_VERSION = 1
 GRLE_DIMENSION_SCALE = 256  # header stores width/height divided by 256
 GRLE_RUN_LENGTH_OFFSET = 2  # a run of (a, a) always means at least 2 pixels
-GRLE_EXTENSION_BYTE = 0xFF  # each 0xFF in a count chain adds 255 to the run
+GRLE_EXTENSION_BYTE = 0xFF  # an all-0xFF pixel in a count chain adds its maximum
+GRLE_MAX_CHANNELS = 2  # a pixel is at most two bytes wide
 
 
 class GrleHeader(NamedTuple):
     """
-    Parsed dimensions from a GRLE file's header.
+    Parsed dimensions and pixel width from a GRLE file's header.
     """
 
     width: int
     height: int
+    bytes_per_pixel: int
 
     @property
     def pixel_count(self) -> int:
         """Total number of pixels described by this header."""
         return self.width * self.height
 
+    @property
+    def byte_count(self) -> int:
+        """Total number of bytes the decoded pixel data should occupy."""
+        return self.pixel_count * self.bytes_per_pixel
+
 
 class _RunLengthReader:
     """
-    Cursor over a GRLE RLE byte stream.
+    Cursor over a GRLE RLE byte stream, reading one pixel of
+    `bytes_per_pixel` little-endian bytes at a time.
     """
 
-    def __init__(self, stream: bytes, start_pos: int = 0) -> None:
+    def __init__(self, stream: bytes, bytes_per_pixel: int, start_pos: int = 0) -> None:
         self._stream = stream
+        self._bytes_per_pixel = bytes_per_pixel
+        self._extension_value = int.from_bytes(
+            bytes([GRLE_EXTENSION_BYTE] * bytes_per_pixel), "little"
+        )
         self._pos = start_pos
 
-    def __iter__(self) -> _RunLengthReader:
+    def _read_pixel(self) -> int:
+        """
+        Read and consume the next pixel's bytes as a little-endian value.
+        """
+        end = self._pos + self._bytes_per_pixel
+        value = int.from_bytes(self._stream[self._pos : end], "little")
+        self._pos = end
+        return value
+
+    def __iter__(self) -> "_RunLengthReader":
         return self
 
     def __next__(self) -> tuple[int, int]:
         """
-        Read and consume the next byte pair, or stop if none remain.
+        Read and consume the next pixel pair, or stop if none remain.
         """
-        if self._pos + 1 >= len(self._stream):
+        if self._pos + 2 * self._bytes_per_pixel > len(self._stream):
             raise StopIteration
 
-        first, second = self._stream[self._pos], self._stream[self._pos + 1]
-        self._pos += 2
-        return first, second
+        return self._read_pixel(), self._read_pixel()
 
     def step_back(self) -> None:
         """
-        Rewind by one byte, used when a 'pair' turns out to be a transition.
+        Rewind by one pixel, used when a 'pair' turns out to be a transition.
         """
-        self._pos -= 1
+        self._pos -= self._bytes_per_pixel
 
     def read_run_length(self) -> int:
         """
-        Read a run length that may span multiple bytes: each byte adds to
-        the total, and a byte equal to GRLE_EXTENSION_BYTE means "keep
-        reading." GRLE_RUN_LENGTH_OFFSET is added at the end as the minimum
-        run length.
+        Read a run length that may span multiple pixels: each pixel adds to
+        the total, and a pixel whose bytes are all GRLE_EXTENSION_BYTE means
+        "keep reading." GRLE_RUN_LENGTH_OFFSET is added at the end as the
+        minimum run length.
 
         :return: (int) The decoded run length.
         """
         count: int = 0
-        while self._pos < len(self._stream):
-            byte = self._stream[self._pos]
-            self._pos += 1
-            count += byte
-            if byte != GRLE_EXTENSION_BYTE:
+        while self._pos + self._bytes_per_pixel <= len(self._stream):
+            value = self._read_pixel()
+            count += value
+            if value != self._extension_value:
                 break
         return count + GRLE_RUN_LENGTH_OFFSET
 
@@ -108,7 +129,7 @@ class _RunLengthReader:
 class ImageConverterService:
     """
     Python service to convert images. Wraps Wand/ImageMagick for .dds
-    conversion and decodes .grle images into grayscale .png images.
+    conversion and decodes .grle images into .png images.
     """
 
     @staticmethod
@@ -148,6 +169,10 @@ class ImageConverterService:
         """
         Convert a Farming Simulator .grle bitmask file to a .png image.
 
+        One byte per pixel decodes to a grayscale image. Two bytes per pixel
+        decodes to RGB, with the low byte in red and the high byte in green,
+        so the original value can be recovered as (red + green * 256).
+
         :param grle_bytes: Raw .grle file bytes.
         :return: Converted PNG image bytes.
         :raises ValueError: If the GRLE header is invalid.
@@ -161,7 +186,8 @@ class ImageConverterService:
     @staticmethod
     def _parse_grle_header(data: bytes) -> GrleHeader:
         """
-        Validate a GRLE header and return its image dimensions.
+        Validate a GRLE header and return its image dimensions and the number
+        of bytes each pixel occupies.
 
         :param data: Raw .grle file bytes.
         :return: Parsed GrleHeader.
@@ -176,55 +202,68 @@ class ImageConverterService:
                 "Unexpected GRLE version %d (expected %d)", version, GRLE_SUPPORTED_VERSION
             )
 
-        channels = data[13]
-        if channels != 1:
-            raise ValueError(f"Unsupported channel count: {channels} (expected 1)")
+        bytes_per_pixel = data[13]
+        if not 1 <= bytes_per_pixel <= GRLE_MAX_CHANNELS:
+            raise ValueError(f"Unsupported channel count: {bytes_per_pixel} (expected 1 or 2)")
 
         width = struct.unpack_from("<H", data, 6)[0] * GRLE_DIMENSION_SCALE
         height = struct.unpack_from("<H", data, 10)[0] * GRLE_DIMENSION_SCALE
-        return GrleHeader(width, height)
+        return GrleHeader(width, height, bytes_per_pixel)
 
     @staticmethod
-    def _decode_pixel_stream(stream: bytes, expected_pixels: int) -> bytes:
+    def _decode_pixel_stream(stream: bytes, header: GrleHeader) -> bytes:
         """
-        Decode a GRLE RLE byte stream into raw grayscale pixel values.
+        Decode a GRLE RLE byte stream into raw pixel values, little-endian,
+        with header.bytes_per_pixel bytes per pixel.
 
         :param stream: The RLE-encoded bytes, starting at the padding byte.
-        :param expected_pixels: Total pixel count the image should contain.
-        :return: Raw grayscale pixel bytes, one byte per pixel.
+        :param header: Parsed header, giving the pixel width and total size.
+        :return: Raw pixel bytes.
         """
+        pixel_bytes = header.bytes_per_pixel
+        expected_bytes = header.byte_count
 
-        reader = _RunLengthReader(stream, start_pos=1)  # skip the padding byte
+        reader = _RunLengthReader(stream, pixel_bytes, start_pos=1)  # skip padding byte
         pixels = bytearray()
 
         for first, second in reader:
-            if len(pixels) >= expected_pixels:
+            if len(pixels) >= expected_bytes:
                 break
 
             if first == second:
                 run_length = reader.read_run_length()
-                remaining = expected_pixels - len(pixels)
-                pixels.extend([first] * min(run_length, remaining))
+                remaining = (expected_bytes - len(pixels)) // pixel_bytes
+                pixels.extend(first.to_bytes(pixel_bytes, "little") * min(run_length, remaining))
             else:
-                pixels.append(first)
+                pixels.extend(first.to_bytes(pixel_bytes, "little"))
                 reader.step_back()
 
-        if len(pixels) < expected_pixels:
-            logger.warning(...)
-            pixels.extend([0] * (expected_pixels - len(pixels)))
+        if len(pixels) < expected_bytes:
+            logger.warning(
+                "GRLE stream ended early: %d of %d bytes, padding with zeros",
+                len(pixels),
+                expected_bytes,
+            )
+            pixels.extend([0] * (expected_bytes - len(pixels)))
 
         return bytes(pixels)
 
     @staticmethod
     def _decode_grle(data: bytes) -> Image.Image:
         """
-        Decode a GRLE file's bytes into a Pillow grayscale image.
+        Decode a GRLE file's bytes into a Pillow image: grayscale for one
+        byte per pixel, RGB (low byte, high byte, 0) for two.
 
         :param data: Raw .grle file bytes.
-        :return: Decoded grayscale image.
+        :return: Decoded image.
         """
         header = ImageConverterService._parse_grle_header(data)
-        pixels = ImageConverterService._decode_pixel_stream(
-            data[GRLE_HEADER_SIZE:], header.pixel_count
-        )
-        return Image.frombytes("L", (header.width, header.height), pixels)
+        pixels = ImageConverterService._decode_pixel_stream(data[GRLE_HEADER_SIZE:], header)
+        size = (header.width, header.height)
+
+        if header.bytes_per_pixel == 1:
+            return Image.frombytes("L", size, pixels)
+
+        low_byte = Image.frombytes("L", size, pixels[0::2])
+        high_byte = Image.frombytes("L", size, pixels[1::2])
+        return Image.merge("RGB", (low_byte, high_byte, Image.new("L", size)))
