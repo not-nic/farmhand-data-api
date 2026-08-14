@@ -15,7 +15,7 @@ from src.api.core.repositories.info_layer_repository import InfoLayerRepository
 from src.api.services.aws.aws_service import AwsService
 from src.api.services.image_converter_service import ImageConverterService
 from src.api.services.maps.map_service import MapService
-from src.api.utils import key_from_s3_uri
+from src.api.utils import key_from_s3_uri, is_past_retry_cooldown
 
 
 class InfoLayerIngestionService:
@@ -23,6 +23,8 @@ class InfoLayerIngestionService:
     Python service class to convert pending info layer .grle files into
     .png images, replacing them in the ingest bucket.
     """
+
+    RETRY_COOLDOWN_MINUTES = 30
 
     def __init__(self, db):
         self.info_layer_repository = InfoLayerRepository(db)
@@ -44,12 +46,25 @@ class InfoLayerIngestionService:
             pending_by_map.setdefault(layer.map_id, []).append(layer)
 
         ingested: list[int] = []
+        attempted: list[int] = []
 
         for map_id, layers in pending_by_map.items():
             map_obj = self.map_service.get_map_by_id(map_id)
+
+            if not map_obj:
+                continue
+
+            if not is_past_retry_cooldown(map_obj, self.RETRY_COOLDOWN_MINUTES):
+                logger.debug(
+                    "[InfoLayerIngestion]: Skipping map %d — still within retry cooldown.",
+                    map_id,
+                )
+                continue
+
             errors: list[str] = []
 
             for layer in layers:
+                attempted.append(layer.map_id)
 
                 logger.debug(
                     "[InfoLayerIngestion]: Converting '%s' for '%s'.",
@@ -78,13 +93,15 @@ class InfoLayerIngestionService:
                     )
                     errors.append(message)
 
-            if map_obj:
-                self._update_ingestion_result(map_obj, errors)
+            self._update_ingestion_result(map_obj, errors)
+
+        if not attempted:
+            return
 
         logger.info(
             "[InfoLayer-Ingestion]: %d/%d info layer(s) converted. map_ids=%s",
             len(ingested),
-            len(pending),
+            len(attempted),
             ingested
         )
 

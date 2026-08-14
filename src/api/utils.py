@@ -1,11 +1,13 @@
 """
 Farmhand util functions.
 """
+from datetime import datetime, timedelta
 
 from fastapi.exceptions import RequestValidationError
 from pydantic import ValidationError
 
-from src.api.constants import ContentType
+from src.api.constants import ContentType, IngestionStatus
+from src.api.core.db.models import Map
 
 
 def format_pydantic_errors(
@@ -91,3 +93,19 @@ def extension_to_content_type(extension: str) -> str:
         return ContentType[normalized_ext.upper()].value
     except KeyError:
         return ContentType.BINARY_OCTET_STREAM.value
+
+
+def is_past_retry_cooldown(map_obj: Map, cooldown_minutes: int) -> bool:
+    """
+    Check if a FAILED map's retry cooldown has elapsed. Maps that
+    aren't FAILED are always considered past cooldown.
+
+    :param map_obj: The map to check.
+    :param cooldown_minutes: Minutes to wait before retrying a FAILED map.
+    :return: True if the map isn't FAILED, or its cooldown has elapsed.
+    """
+    if map_obj.ingestion_status != IngestionStatus.FAILED:
+        return True
+
+    cooldown_elapsed = datetime.now() - timedelta(minutes=cooldown_minutes)
+    return map_obj.ingestion_updated_at < cooldown_elapsed
