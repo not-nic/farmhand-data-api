@@ -40,36 +40,32 @@ class BaseMapLayerBuilder(ABC):
         return self.__class__.__name__
 
     @abstractmethod
-    def process_pending(self) -> None:
+    def get_pending_map_ids(self) -> set[int]:
         """
-        Process every map with pending work for this layer.
+        Get the ids of every map with pending work for this layer.
+        :return: Set of map ids awaiting processing.
         """
         pass
 
-    def _parse_i3d(self, map_obj: Map) -> I3dModel | None:
+    @abstractmethod
+    def process_map(self, map_obj: Map, parsed_i3d: I3dModel | None) -> None:
         """
-        Fetch and parse a map's map.i3d file.
+        Process this layer's pending work for a single map. Implementations
+        should no-op quickly if they have nothing pending for this map.
 
-        :param map_obj: The map to fetch map.i3d for.
-        :return: Parsed I3dModel, or None if it couldn't be fetched.
-        :raises ClientError: If the S3 fetch fails.
-        :raises ParseError: If the content is not valid XML.
+        :param map_obj: (Map) The map to process.
+        :param parsed_i3d: (I3dModel) The map's already-parsed I3dModel, or None if
+            it couldn't be fetched/parsed.
         """
-        if not map_obj.data_uri or not map_obj.information or not map_obj.information.map_i3d_filename:
-            return None
-
-        filename: str = map_obj.information.map_i3d_filename
-        content: bytes = self.aws_service.get_content_from_uri(f"{map_obj.data_uri}/map/{filename}")
-        return I3dParser().parse(content)
+        pass
 
     @staticmethod
     def _load_pixels(image_bytes: bytes) -> np.ndarray:
         """
         Load an index PNG as a greyscale pixel array.
 
-        :param image_bytes: Raw bytes of the index PNG.
-        :return: Greyscale pixel array, one value per pixel.
-        :raises UnidentifiedImageError: If the bytes aren't a valid image.
+        :param image_bytes: (bytes) Raw bytes of the index PNG.
+        :return: Greyscale pixel array with one value per pixel.
         """
         image = Image.open(BytesIO(image_bytes)).convert("L")
         return np.array(image)

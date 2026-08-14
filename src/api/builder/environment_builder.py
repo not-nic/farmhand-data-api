@@ -7,6 +7,7 @@ within a given map.
 import time
 
 import numpy as np
+from botocore.exceptions import ClientError
 from PIL import Image
 from sqlalchemy.orm import Session
 
@@ -15,12 +16,12 @@ from src.api.builder.base_layer_builder import (
     FARMLANDS_LAYER_KEY,
     BaseMapLayerBuilder,
 )
-from src.api.constants import AreaType, IngestionStatus
+from src.api.constants import AreaType
 from src.api.core.db.models import Farmland, Map
-from src.api.core.exceptions import LayerNotReadyError
+from src.api.core.exceptions import LayerNotReadyError, MapBuilderError
 from src.api.core.logger import logger
 from src.api.core.repositories.farmland_repository import FarmlandRepository
-from src.api.core.schema.mods.i3d import InfoLayerGroupModel
+from src.api.core.schema.mods.i3d import I3dModel, InfoLayerGroupModel
 
 
 class EnvironmentBuilder(BaseMapLayerBuilder):
@@ -33,47 +34,45 @@ class EnvironmentBuilder(BaseMapLayerBuilder):
         super().__init__(db)
         self.farmland_repository = FarmlandRepository(db)
 
-    def process_pending(self) -> None:
+    def get_pending_map_ids(self) -> set[int]:
         """
-        Compute and persist the environment composition for every farmland.
+        Get the ids of every map with farmlands awaiting area types.
+        :return: Set of map ids awaiting processing.
         """
-
         pending: list[Farmland] = self.farmland_repository.get_pending_environment()
+        return {farmland.map_id for farmland in pending}
 
-        if not pending:
+    def process_map(self, map_obj: Map, parsed_i3d: I3dModel | None) -> None:
+        """
+        Compute and persist area type composition for a given map.
+
+        :param map_obj: (int) The map to process.
+        :param parsed_i3d: (I3dModel) The map's already-parsed I3dModel, or None if
+            it couldn't be fetched/parsed.
+        """
+        map_id = map_obj.id
+        farmlands: list[Farmland] = [
+            f for f in self.farmland_repository.get_pending_environment() if f.map_id == map_id
+        ]
+
+        if not farmlands:
             return
 
-        by_map: dict[int, list[Farmland]] = {}
-        for farmland in pending:
-            by_map.setdefault(farmland.map_id, []).append(farmland)
-
-        for map_id, farmlands in by_map.items():
-            try:
-                self._process_map(map_id, farmlands)
-            except LayerNotReadyError as exc:
-                logger.debug("[%s]: Skipping map %d — %s", self.name, map_id, exc)
-            except Exception as exc:
-                logger.error(
-                    "[%s]: Failed to compute area types for map %d: %s",
-                    self.name,
-                    map_id,
-                    exc,
-                )
-
-    def _process_map(self, map_id: int, farmlands: list[Farmland]) -> None:
-        """
-        Compute and persist environment composition for a given map and its farmlands.
-
-        :param map_id: (int) The map to process.
-        :param farmlands: (list) The map's farmlands.
-        :raises LayerNotReadyError: If a required layer hasn't finished converting.
-        :raises ValueError: If map data isn't available yet.
-        :raises ClientError: If an S3 fetch fails.
-        :raises ParseError: If map.i3d is not valid XML.
-        :raises UnidentifiedImageError: If a layer's PNG is unreadable.
-        """
         started_at: float = time.perf_counter()
-        composition: dict[int, dict[str, float]] = self.get_environment_composition(map_id)
+
+        try:
+            composition = self._compute_composition(map_id, parsed_i3d)
+        except LayerNotReadyError as exc:
+            logger.debug("[%s]: Skipping map %d — %s", self.name, map_id, exc)
+            return
+        except ValueError as exc:
+            raise MapBuilderError(
+                f"{self.name} failed to compute area types for map {map_id}."
+            ) from exc
+        except ClientError as exc:
+            raise MapBuilderError(
+                f"{self.name} failed to fetch a layer for map {map_id}."
+            ) from exc
 
         found_count: int = 0
         for farmland in farmlands:
@@ -91,16 +90,21 @@ class EnvironmentBuilder(BaseMapLayerBuilder):
             elapsed,
         )
 
-    def get_environment_composition(self, map_id: int) -> dict[int, dict[str, float]]:
+    def _compute_composition(
+        self, map_id: int, parsed_i3d: I3dModel | None
+    ) -> dict[int, dict[str, float]]:
         """
-        Determine what percentage of each farmland is covered by an area type.
+        Method to determine what percentage of each farmland is covered by an area type.
 
         :param map_id: (int) The map to process.
         :return: (dict[str, float]) a farmland and its area type percentage
             Example:
                 {farmland_number: {area_type_key: percentage}}
         """
-        area_type_group = self._resolve_area_type_group(map_id)
+        if parsed_i3d is None:
+            raise ValueError(f"Could not fetch or parse map.i3d for map {map_id}.")
+
+        area_type_group = self._resolve_area_type_group(parsed_i3d, map_id)
 
         farmlands_pixels = self._load_layer_pixels(map_id, FARMLANDS_LAYER_KEY)
         environment_pixels = self._match_shape(
@@ -133,27 +137,14 @@ class EnvironmentBuilder(BaseMapLayerBuilder):
 
         return composition
 
-    def _resolve_area_type_group(self, map_id: int) -> InfoLayerGroupModel:
+    @staticmethod
+    def _resolve_area_type_group(parsed_i3d: I3dModel, map_id: int) -> InfoLayerGroupModel:
         """
         Resolve the environment layer's 'Area Type' group for a map.
 
         :param map_id: (int) The map to process.
-        :return: The Area Type InfoLayerGroupModel.
-        :raises ValueError: If the map or its i3d file is unavailable.
+        :return: (InfoLayerGroupModel) The Area Type InfoLayerGroupModel.
         """
-        map_obj: Map | None = self.map_service.get_map_by_id(map_id)
-
-        if not map_obj:
-            raise ValueError(f"Map {map_id} not found.")
-
-        if map_obj.ingestion_status == IngestionStatus.FAILED:
-            raise ValueError(f"Map {map_id} ingestion status is FAILED.")
-
-        parsed_i3d = self._parse_i3d(map_obj)
-
-        if parsed_i3d is None:
-            raise ValueError(f"Could not fetch or parse map.i3d for map {map_id}.")
-
         for layer in parsed_i3d.info_layers:
             if layer.layer_key != ENVIRONMENT_LAYER_KEY:
                 continue
@@ -167,10 +158,9 @@ class EnvironmentBuilder(BaseMapLayerBuilder):
         """
         Load an environment info layer.
 
-        :param map_id: The map id of the layer.
-        :param layer_key: The layer key to load, e.g. FARMLANDS_LAYER_KEY.
-        :return: The layer's pixels.
-        :raises LayerNotReadyError: If the layer is missing or not yet ingested.
+        :param map_id: (int) The map id of the layer.
+        :param layer_key: (str) The layer key to load, e.g. FARMLANDS_LAYER_KEY.
+        :return: (np.ndarray) The layer's pixels.
         """
         layer = self.info_layer_repository.get_by_map_and_key(map_id, layer_key)
 
@@ -184,9 +174,9 @@ class EnvironmentBuilder(BaseMapLayerBuilder):
         """
         Nearest-neighbour resizes `pixels` to `target`'s shape if they differ.
 
-        :param pixels: The pixels to resize.
-        :param target: The array whose shape should be matched.
-        :return: `pixels`, resized to `target`'s shape where necessary.
+        :param pixels: (np.ndarray) The pixels to resize.
+        :param target: (np.ndarray) The array whose shape should be matched.
+        :return: (np.ndarray) pixels resized to `target`'s shape where necessary.
         """
         if pixels.shape == target.shape:
             return pixels
@@ -203,8 +193,8 @@ class EnvironmentBuilder(BaseMapLayerBuilder):
         Convert a raw farming simulator area type into an enum used
         by the farmhand-data-api.
 
-        :param raw_name: The raw display name from the i3d Option list.
-        :return: Snake_case area type key, or 'unknown' if unrecognised.
+        :param raw_name: (str) The raw display name from the i3d Option list.
+        :return: (str) Snake_case area type key, or 'unknown' if unrecognised.
         """
         try:
             area_type = AreaType(raw_name) if raw_name else AreaType.UNKNOWN

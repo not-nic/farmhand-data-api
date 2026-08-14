@@ -40,7 +40,9 @@ class FarmlandsXmlParser(BaseXmlParser[FarmlandsXmlModel]):
         :return: (float) The price per hectare, or None if not present.
         """
         price_per_ha = farmlands_element.get("pricePerHa")
-        return float(price_per_ha) if price_per_ha is not None else None
+        if price_per_ha is None:
+            return None
+        return float(price_per_ha.replace(" ", ""))
 
     @staticmethod
     def _get_farmlands(farmlands_element: Element) -> list[FarmlandXmlEntryModel]:

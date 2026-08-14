@@ -4,17 +4,17 @@ Tasks for ingesting maps into the farmhand data-api in the background.
 
 import asyncio
 
-from src.api.builder.map_builder import MapBuilder
 from src.api.core.db.db_setup import db_session
 from src.api.core.logger import logger
 from src.api.services.assets.asset_ingestion_service import AssetIngestionService
 from src.api.services.assets.info_layer_ingestion_service import InfoLayerIngestionService
+from src.api.services.maps.map_builder_service import MapBuilderService
 from src.api.services.maps.map_ingestion_service import MapIngestionService
 
 
 def get_new_maps() -> None:
     """
-    Background task to get new maps from the Farming Simulator ModHub,
+    Background task to get new maps from the Farming Simulator ModHub
     and scrape their metadata. Leaves each map at PENDING for the
     download poller to pick up.
     """
@@ -90,4 +90,4 @@ def process_map_layers() -> None:
     """
     with db_session() as db:
         logger.debug("[MAP TASKS]: Processing pending map layers.")
-        MapBuilder(db).process_pending()
+        MapBuilderService(db).process_pending()

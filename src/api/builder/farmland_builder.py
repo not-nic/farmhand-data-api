@@ -4,19 +4,19 @@ given map and its 'infoLayer_farmlands.grle'.
 """
 
 import time
-from collections import defaultdict
 from collections.abc import Iterable
 
 import cv2
 import numpy as np
+from botocore.exceptions import ClientError
 from sqlalchemy.orm import Session
 
 from src.api.builder.base_layer_builder import (
     FARMLANDS_LAYER_KEY,
     BaseMapLayerBuilder,
 )
-from src.api.constants import IngestionStatus
 from src.api.core.db.models import Farmland, InfoLayer, Map
+from src.api.core.exceptions import MapBuilderError
 from src.api.core.logger import logger
 from src.api.core.repositories.farmland_repository import FarmlandRepository
 from src.api.core.schema.mods.i3d import I3dModel
@@ -52,53 +52,31 @@ class FarmlandBuilder(BaseMapLayerBuilder):
         super().__init__(db)
         self.farmland_repository = FarmlandRepository(db)
 
-    def process_pending(self) -> None:
+    def get_pending_map_ids(self) -> set[int]:
         """
-        Create geometry data for every farmland that has been ingested.
+        Get the ids of every map with farmlands awaiting geometry.
+        :return: Set of map ids awaiting processing.
         """
         pending: list[Farmland] = self.farmland_repository.get_pending_geometry()
+        return {farmland.map_id for farmland in pending}
 
-        if not pending:
+    def process_map(self, map_obj: Map, parsed_i3d: I3dModel | None) -> None:
+        """
+        Extract and persist geometry for farmlands on a given map.
+
+        :param map_obj: (Map) The map to process.
+        :param parsed_i3d: (I3dModel) The map's already-parsed I3dModel, or None if
+            it couldn't be fetched/parsed.
+        """
+        map_id = map_obj.id
+        farmlands: list[Farmland] = [
+            f for f in self.farmland_repository.get_pending_geometry() if f.map_id == map_id
+        ]
+
+        if not farmlands:
             return
 
-        pending_by_map: dict[int, list[Farmland]] = defaultdict(list)
-        for farmland in pending:
-            pending_by_map[farmland.map_id].append(farmland)
-
-        for map_id, farmlands in pending_by_map.items():
-            farmlands_layer: InfoLayer | None = self.info_layer_repository.get_by_map_and_key(
-                map_id, FARMLANDS_LAYER_KEY
-            )
-
-            if not farmlands_layer or not farmlands_layer.is_ingested:
-                continue
-
-            try:
-                self._process_map(map_id, farmlands_layer.asset_uri, farmlands)
-            except Exception as exc:
-                logger.error(
-                    "[%s]: Failed to process map %d: %s",
-                    self.name,
-                    map_id,
-                    exc,
-                )
-
-    def _process_map(
-            self,
-            map_id: int,
-            farmlands_asset_uri: str,
-            farmlands: list[Farmland],
-    ) -> None:
-        """
-        Extract and persist geometry for every farmland on a single map.
-
-        :param map_id: (int) The map to process.
-        :param farmlands_asset_uri: (str) S3 URI of the converted farmlands PNG.
-        :param farmlands: (list) The map's farmlands awaiting geometry.
-        """
-        map_obj: Map | None = self.map_service.get_map_by_id(map_id)
-
-        if not map_obj or not map_obj.information or not map_obj.information.width:
+        if not map_obj.information or not map_obj.information.width:
             logger.warning(
                 "[%s]: Skipping map %d — no map width available.",
                 self.name,
@@ -106,15 +84,13 @@ class FarmlandBuilder(BaseMapLayerBuilder):
             )
             return
 
-        if map_obj.ingestion_status == IngestionStatus.FAILED:
-            logger.debug(
-                "[%s]: Skipping map %d — ingestion status is FAILED.",
-                self.name,
-                map_id,
-            )
-            return
+        farmlands_layer: InfoLayer | None = self.info_layer_repository.get_by_map_and_key(
+            map_id,
+            FARMLANDS_LAYER_KEY
+        )
 
-        parsed_i3d = self._parse_i3d(map_obj)
+        if not farmlands_layer or not farmlands_layer.is_ingested:
+            return
 
         if parsed_i3d is None:
             logger.warning(
@@ -135,13 +111,24 @@ class FarmlandBuilder(BaseMapLayerBuilder):
             )
             return
 
-        image_bytes: bytes = self.aws_service.get_content_from_uri(farmlands_asset_uri)
-        pixels: np.ndarray = self._load_pixels(image_bytes)
-
         started_at: float = time.perf_counter()
-        geometry: dict[int, dict] = self._extract_geometry(
-            pixels, map_obj.information.width, unbuyable_values
-        )
+
+        try:
+            image_bytes: bytes = self.aws_service.get_content_from_uri(farmlands_layer.asset_uri)
+            pixels: np.ndarray = self._load_pixels(image_bytes)
+            geometry: dict[int, dict] = self._extract_geometry(
+                pixels,
+                map_obj.information.width,
+                unbuyable_values
+            )
+        except ClientError as exc:
+            raise MapBuilderError(
+                f"{self.name} failed to fetch the farmlands layer for map {map_id}."
+            ) from exc
+        except cv2.error as exc:
+            raise MapBuilderError(
+                f"{self.name} failed extracting contours for map {map_id}."
+            ) from exc
 
         found_count: int = 0
         for farmland in farmlands:

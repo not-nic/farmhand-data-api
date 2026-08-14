@@ -3,8 +3,11 @@ Python module containing an info layer ingestion service, to convert
 raw .grle info layer files into .png images.
 """
 
+from datetime import datetime
+
 from botocore.exceptions import ClientError
 
+from src.api.constants import IngestionStatus
 from src.api.core.db.models import Map
 from src.api.core.db.models.maps import InfoLayer
 from src.api.core.logger import logger
@@ -36,25 +39,77 @@ class InfoLayerIngestionService:
         if not pending:
             return
 
+        pending_by_map: dict[int, list[InfoLayer]] = {}
+        for layer in pending:
+            pending_by_map.setdefault(layer.map_id, []).append(layer)
+
         ingested: list[int] = []
 
-        for layer in pending:
-            try:
-                self._convert_layer(layer)
-                ingested.append(layer.map_id)
-            except ClientError as exc:
-                logger.error(
-                    "[InfoLayer-Ingestion]: Failed to fetch '%s' for map %d: %s",
+        for map_id, layers in pending_by_map.items():
+            map_obj = self.map_service.get_map_by_id(map_id)
+            errors: list[str] = []
+
+            for layer in layers:
+
+                logger.debug(
+                    "[InfoLayerIngestion]: Converting '%s' for '%s'.",
                     layer.grle_filename,
                     layer.map_id,
-                    exc,
                 )
+                try:
+                    self._convert_layer(layer)
+                    ingested.append(layer.map_id)
+                except ClientError as exc:
+                    message = f"Failed to fetch '{layer.grle_filename}': {exc}"
+                    logger.error(
+                        "[InfoLayer-Ingestion]: Failed to fetch '%s' for map %d: %s",
+                        layer.grle_filename,
+                        layer.map_id,
+                        exc,
+                    )
+                    errors.append(message)
+                except ValueError as exc:
+                    message = f"Failed to decode '{layer.grle_filename}': {exc}"
+                    logger.error(
+                        "[InfoLayerIngestion]: Failed to decode '%s' for map %d: %s",
+                        layer.grle_filename,
+                        layer.map_id,
+                        exc,
+                    )
+                    errors.append(message)
+
+            if map_obj:
+                self._update_ingestion_result(map_obj, errors)
 
         logger.info(
             "[InfoLayer-Ingestion]: %d/%d info layer(s) converted. map_ids=%s",
             len(ingested),
             len(pending),
             ingested
+        )
+
+    def _update_ingestion_result(self, map_obj: Map, errors: list[str]) -> None:
+        """
+        Mark the map as FAILED if any of its layers failed to convert.
+
+        :param map_obj: (Map) The map whose ingestion status is being recorded.
+        :param errors: (list[str]) Error messages collected from layer conversion
+            failures this pass, if any.
+        """
+        if not errors:
+            return
+
+        self.map_service.update_map(
+            map_obj,
+            ingestion_status=IngestionStatus.FAILED,
+            ingestion_error="; ".join(errors),
+            ingestion_updated_at=datetime.now(),
+        )
+        logger.error(
+            "[InfoLayerIngestion]: Marked '%s' (%d) as FAILED after %d layer error(s).",
+            map_obj.name,
+            map_obj.id,
+            len(errors),
         )
 
     def _convert_layer(self, layer: InfoLayer) -> None:
