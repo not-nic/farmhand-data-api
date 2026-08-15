@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session
 from src.api.core.db.models import Map
 from src.api.core.repositories.info_layer_repository import InfoLayerRepository
 from src.api.core.schema.mods.i3d import I3dModel
-from src.api.parsers.xml.i3d_parser import I3dParser
 from src.api.services.aws.aws_service import AwsService
 from src.api.services.maps.map_service import MapService
 

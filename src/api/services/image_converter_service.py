@@ -90,7 +90,7 @@ class _RunLengthReader:
         self._pos = end
         return value
 
-    def __iter__(self) -> "_RunLengthReader":
+    def __iter__(self) -> _RunLengthReader:
         return self
 
     def __next__(self) -> tuple[int, int]:

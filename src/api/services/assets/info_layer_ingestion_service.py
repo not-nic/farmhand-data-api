@@ -15,7 +15,7 @@ from src.api.core.repositories.info_layer_repository import InfoLayerRepository
 from src.api.services.aws.aws_service import AwsService
 from src.api.services.image_converter_service import ImageConverterService
 from src.api.services.maps.map_service import MapService
-from src.api.utils import key_from_s3_uri, is_past_retry_cooldown
+from src.api.utils import is_past_retry_cooldown, key_from_s3_uri
 
 
 class InfoLayerIngestionService:

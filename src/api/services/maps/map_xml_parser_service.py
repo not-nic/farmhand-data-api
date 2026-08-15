@@ -3,7 +3,7 @@ Map XML Parser Service Module used for parsing a map's extracted XML
 files into structured metadata and persisting it onto the Map record.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from time import perf_counter
 from xml.etree.ElementTree import ParseError
 

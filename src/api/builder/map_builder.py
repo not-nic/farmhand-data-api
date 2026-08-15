@@ -12,7 +12,6 @@ from sqlalchemy.orm import Session
 from src.api.builder.base_layer_builder import BaseMapLayerBuilder
 from src.api.builder.environment_builder import EnvironmentBuilder
 from src.api.builder.farmland_builder import FarmlandBuilder
-from src.api.constants import IngestionStatus
 from src.api.core.db.models import Map
 from src.api.core.exceptions import MapBuilderError
 from src.api.core.logger import logger
