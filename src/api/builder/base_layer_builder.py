@@ -61,10 +61,27 @@ class BaseMapLayerBuilder(ABC):
     @staticmethod
     def _load_pixels(image_bytes: bytes) -> np.ndarray:
         """
-        Load an index PNG as a greyscale pixel array.
+        Load an index PNG as a pixel array, one value per pixel.
+
+        A one byte per pixel layer is stored greyscale and loads as-is. A two
+        byte per pixel layer is stored RGB, with the low byte in red and the
+        high byte in green, so the two are recombined into the original value.
 
         :param image_bytes: (bytes) Raw bytes of the index PNG.
-        :return: Greyscale pixel array with one value per pixel.
+        :return: Pixel array with one value per pixel.
         """
-        image = Image.open(BytesIO(image_bytes)).convert("L")
-        return np.array(image)
+        image = Image.open(BytesIO(image_bytes))
+
+        if image.mode not in ("RGB", "RGBA"):
+            return np.array(image.convert("L"))
+
+        pixels: np.ndarray = np.array(image, dtype=np.uint16)
+
+        low_byte: np.ndarray = pixels[:, :, 0]  # red
+        high_byte: np.ndarray = pixels[:, :, 1]  # green
+
+        # Each value was split over two bytes to store numbers above 255, so
+        # the green byte counts in whole 256s and the red byte is the leftover:
+        # green 1, red 44 is 1 * 256 + 44 = 300. Shifting green left by 8 bits
+        # multiplies it by 256, and the two never overlap.
+        return low_byte | (high_byte << 8)
