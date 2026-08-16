@@ -16,6 +16,7 @@ farmhand:
         - "PDA.png"
       xml:
         - "config/*.xml"
+        - "scripts/*.xml"  # Some maps store XML in /scripts(?)
         - "xml/*.xml" # Some maps (i.e. Pallegney) store XML in /xml
         - "xmlFiles/*.xml"
         - "maps/*.xml"
@@ -23,10 +24,17 @@ farmhand:
         - "map*.xml"
         - "CYLNH.xml" # required for specific map 'Castile And Leon'
         - "CYLNH_*.xml"
+        - "mapUS/*.xml"
+        - "mapAlpine/*.xml"
       grle_data:
         - "data/*.grle"
+        - "data/precisionFarming/*.grle"
         - "maps/carpathianCountryside/*.grle"
         - "CYLNH/data/*/*.grle"
+        - "mapUS/mapUS_*.grle"  # Owendale (331434) stores soilmaps outside map data.
+        - "weight/*.grle" # Oberschwaben (317206) uses 'weights' to store GRLE files
+        - "grleGDM/*.grle"
+        - "data/infoLayer/*.grle"
       map:
         - "map.i3d"
         - "map*.i3d"
