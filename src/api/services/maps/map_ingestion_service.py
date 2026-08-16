@@ -276,7 +276,7 @@ class MapIngestionService:
         for farmland in self.farmland_repository.get_by_map_id(map_obj.id):
             self.farmland_repository.update(farmland, area_types=None, coordinates=None, size_ha=None)
 
-        logger.info(
+        logger.debug(
             "Reset downstream ingestion state for '%s' (%d).",
             map_obj.name,
             map_obj.id,
