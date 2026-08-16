@@ -35,14 +35,13 @@ base_scheduler.add_job(JobModel(
 base_scheduler.add_job(JobModel(
     func=download_pending_maps,
     trigger=IntervalTrigger(
-        minutes=60,
+        minutes=10,
         start_date=datetime.now(UTC) + timedelta(minutes=1),
     ),
     id="download_pending_maps",
     name="Download PENDING maps to S3",
     group="pipeline",
     executor="downloads",
-    enabled=False
 ))
 
 
