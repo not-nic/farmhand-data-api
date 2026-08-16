@@ -1,13 +1,14 @@
-FROM python:3.14-alpine
+FROM python:3.14-slim
 
 ENV PYTHONUNBUFFERED=1 \
     UV_PROJECT_ENVIRONMENT=/app/.venv \
-    UV_NO_CACHE=1 \
-    MAGICK_HOME=/usr
+    UV_NO_CACHE=1
 
 COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
 
-RUN apk add --no-cache imagemagick imagemagick-dev imagemagick-webp
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        imagemagick \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 COPY pyproject.toml uv.lock ./

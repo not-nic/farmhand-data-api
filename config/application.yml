@@ -22,8 +22,11 @@ farmhand:
         - "map.xml"
         - "map*.xml"
         - "CYLNH.xml" # required for specific map 'Castile And Leon'
+        - "CYLNH_*.xml"
       grle_data:
         - "data/*.grle"
+        - "maps/carpathianCountryside/*.grle"
+        - "CYLNH/data/*/*.grle"
       map:
         - "map.i3d"
         - "map*.i3d"

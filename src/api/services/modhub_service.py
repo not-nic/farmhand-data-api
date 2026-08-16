@@ -8,7 +8,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 
 from bs4 import BeautifulSoup, Tag
-from httpx2 import AsyncClient, Client, HTTPError, HTTPStatusError, Response, stream
+from httpx2 import AsyncClient, Client, ConnectTimeout, HTTPError, HTTPStatusError, Response, stream
 
 from src.api.constants import ModHubLabels
 from src.api.core.config import settings
@@ -335,12 +335,15 @@ class ModHubService:
                 response = await client.get(url=url, headers=headers if headers else {})
                 response.raise_for_status()
             except HTTPStatusError as exc:
-                logger.error(
+                logger.exception(
                     f"Unable to connect to the ModHub - got status code: {exc.response.status_code}"
                 )
                 raise HTTPError(
                     message=f"Request failed with status code: {exc.response.status_code}"
                 )
+            except ConnectTimeout as exc:
+                logger.exception(f"Timed out connecting to ModHub '{url}' error: ", exc)
+                raise
         return response
 
     @staticmethod

@@ -31,7 +31,7 @@ class BaseXmlHandler[T: BaseModel](ABC):
         self,
         db: Session,
         aws_service: AwsService,
-        assets_service: AssetsService,
+        assets_service: AssetsService | None = None,
     ) -> None:
         self.db = db
         self.aws_service = aws_service
@@ -54,9 +54,10 @@ class BaseXmlHandler[T: BaseModel](ABC):
         pass
 
     @abstractmethod
-    def _store(self, map_obj: Map, parsed: T) -> None:
+    def _store(self, map_obj: Map, parsed: T, **kwargs) -> None:
         """
         Store the parsed data in the database.
+
         :param map_obj: The parent map.
         :param parsed: The parsed Pydantic model.
         """
@@ -87,6 +88,9 @@ class BaseXmlHandler[T: BaseModel](ABC):
         :param filename: The original .dds filename from the XML.
         :param asset_type: The type of asset (icon, preview, overview, etc.).
         """
+        if not self.assets_service:
+            raise ValueError(f"{self.name} has no assets_service configured.")
+
         self.assets_service.register_asset_from_filename(
             entity_id=map_obj.id,
             entity_type=EntityType.MAP,

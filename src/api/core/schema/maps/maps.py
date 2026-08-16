@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, field_validator
 from src.api.constants import FarmhandMapFilters
 from src.api.core.db.models import Map
 from src.api.core.schema.assets import AssetResponse
+from src.api.core.schema.maps.farmlands import FarmlandResponse
 from src.api.core.schema.mods.mod_desc import (
     ChangeLogResponse,
     DependencyResponse,
@@ -77,6 +78,7 @@ class MapResponse(BaseModel):
     dependencies: list[DependencyResponse] = []
     assets: list[AssetResponse] = []
     changelogs: list[ChangeLogResponse] = []
+    farmlands: list[FarmlandResponse] = []
     width: int | None = None
     height: int | None = None
 
@@ -101,6 +103,9 @@ class MapResponse(BaseModel):
         changelogs: list[ChangeLogResponse] = [
             ChangeLogResponse.model_validate(c) for c in map_obj.changelogs
         ]
+        farmlands: list[FarmlandResponse] = [
+            FarmlandResponse.model_validate(f) for f in map_obj.farmlands
+        ]
 
         return cls(
             id=map_obj.id,
@@ -114,6 +119,7 @@ class MapResponse(BaseModel):
             dependencies=dependencies,
             assets=assets,
             changelogs=changelogs,
+            farmlands=farmlands,
             width=width,
             height=height,
         )

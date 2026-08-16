@@ -1,0 +1,171 @@
+"""
+Python module containing an info layer ingestion service, to convert
+raw .grle info layer files into .png images.
+"""
+
+from datetime import datetime
+
+from botocore.exceptions import ClientError
+
+from src.api.constants import IngestionStatus
+from src.api.core.db.models import Map
+from src.api.core.db.models.maps import InfoLayer
+from src.api.core.logger import logger
+from src.api.core.repositories.info_layer_repository import InfoLayerRepository
+from src.api.services.aws.aws_service import AwsService
+from src.api.services.image_converter_service import ImageConverterService
+from src.api.services.maps.map_service import MapService
+from src.api.utils import is_past_retry_cooldown, key_from_s3_uri
+
+
+class InfoLayerIngestionService:
+    """
+    Python service class to convert pending info layer .grle files into
+    .png images, replacing them in the ingest bucket.
+    """
+
+    RETRY_COOLDOWN_MINUTES = 30
+
+    def __init__(self, db):
+        self.info_layer_repository = InfoLayerRepository(db)
+        self.map_service = MapService(db)
+        self.aws_service = AwsService()
+        self.image_converter = ImageConverterService()
+
+    def process_info_layers(self) -> None:
+        """
+        Convert pending info layer .grle into .pngs.
+        """
+        pending = self.info_layer_repository.get_pending()
+
+        if not pending:
+            return
+
+        pending_by_map: dict[int, list[InfoLayer]] = {}
+        for layer in pending:
+            pending_by_map.setdefault(layer.map_id, []).append(layer)
+
+        ingested: list[int] = []
+        attempted: list[int] = []
+
+        for map_id, layers in pending_by_map.items():
+            map_obj = self.map_service.get_map_by_id(map_id)
+
+            if not map_obj:
+                continue
+
+            if not is_past_retry_cooldown(map_obj, self.RETRY_COOLDOWN_MINUTES):
+                logger.debug(
+                    "[InfoLayerIngestion]: Skipping map %d — still within retry cooldown.",
+                    map_id,
+                )
+                continue
+
+            errors: list[str] = []
+
+            for layer in layers:
+                attempted.append(layer.map_id)
+
+                logger.debug(
+                    "[InfoLayerIngestion]: Converting '%s' for '%s'.",
+                    layer.grle_filename,
+                    layer.map_id,
+                )
+                try:
+                    self._convert_layer(layer)
+                    ingested.append(layer.map_id)
+                except ClientError as exc:
+                    message = f"Failed to fetch '{layer.grle_filename}': {exc}"
+                    logger.error(
+                        "[InfoLayer-Ingestion]: Failed to fetch '%s' for map %d: %s",
+                        layer.grle_filename,
+                        layer.map_id,
+                        exc,
+                    )
+                    errors.append(message)
+                except ValueError as exc:
+                    message = f"Failed to decode '{layer.grle_filename}': {exc}"
+                    logger.error(
+                        "[InfoLayerIngestion]: Failed to decode '%s' for map %d: %s",
+                        layer.grle_filename,
+                        layer.map_id,
+                        exc,
+                    )
+                    errors.append(message)
+
+            self._update_ingestion_result(map_obj, errors)
+
+        if not attempted:
+            return
+
+        logger.info(
+            "[InfoLayer-Ingestion]: %d/%d info layer(s) converted. map_ids=%s",
+            len(ingested),
+            len(attempted),
+            ingested
+        )
+
+    def _update_ingestion_result(self, map_obj: Map, errors: list[str]) -> None:
+        """
+        Mark the map as FAILED if any of its layers failed to convert.
+
+        :param map_obj: (Map) The map whose ingestion status is being recorded.
+        :param errors: (list[str]) Error messages collected from layer conversion
+            failures this pass, if any.
+        """
+        if not errors:
+            return
+
+        self.map_service.update_map(
+            map_obj,
+            ingestion_status=IngestionStatus.FAILED,
+            ingestion_error="; ".join(errors),
+            ingestion_updated_at=datetime.now(),
+        )
+        logger.error(
+            "[InfoLayerIngestion]: Marked '%s' (%d) as FAILED after %d layer error(s).",
+            map_obj.name,
+            map_obj.id,
+            len(errors),
+        )
+
+    def _convert_layer(self, layer: InfoLayer) -> None:
+        """
+        Convert an info layer from its .grle format to .png replacing the
+        result back into the ingest-bucket.
+
+        :param layer: (InfoLayer) The InfoLayer to convert.
+        """
+        map_obj: Map = self.map_service.get_map_by_id(layer.map_id)
+
+        if not map_obj or not map_obj.data_uri:
+            logger.warning(
+                "[InfoLayerIngestion]: Skipping '%s' — map %d has no data_uri.",
+                layer.grle_filename,
+                layer.map_id,
+            )
+            return
+
+        grle_key = key_from_s3_uri(f"{map_obj.data_uri}/data/{layer.grle_filename}")
+        png_key = grle_key.rsplit(".", 1)[0] + ".png"
+
+        grle_bytes = self.aws_service.get_content_from_uri(self.aws_service.build_uri(grle_key))
+        png_bytes = self.image_converter.from_grle(grle_bytes)
+
+        self.aws_service.put_object(key=png_key, body=png_bytes, content_type="image/png")
+
+        self.info_layer_repository.update(
+            layer,
+            asset_uri=self.aws_service.build_uri(png_key),
+            is_ingested=True,
+        )
+
+        # attempt to delete the grle image.
+        try:
+            self.aws_service.delete_object(key=grle_key)
+        except ClientError as exc:
+            logger.warning(
+                "[InfoLayerIngestion]: Converted '%s' but failed to delete source: %s",
+                layer.grle_filename,
+                exc,
+            )

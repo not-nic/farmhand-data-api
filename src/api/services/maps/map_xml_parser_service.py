@@ -3,7 +3,7 @@ Map XML Parser Service Module used for parsing a map's extracted XML
 files into structured metadata and persisting it onto the Map record.
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime
 from time import perf_counter
 from xml.etree.ElementTree import ParseError
 
@@ -15,11 +15,14 @@ from src.api.constants import IngestionStatus
 from src.api.core.db.models import Map
 from src.api.core.logger import logger
 from src.api.handlers.xml.base_xml_handler import BaseXmlHandler
+from src.api.handlers.xml.farmland_xml_handler import FarmlandsXmlHandler
+from src.api.handlers.xml.i3d.info_layer_handler import InfoLayerHandler
 from src.api.handlers.xml.maps_xml_handler import MapsXmlHandler
 from src.api.handlers.xml.mod_desc_handler import ModDescHandler
 from src.api.services.assets.assets_service import AssetsService
 from src.api.services.aws.aws_service import AwsService
 from src.api.services.maps.map_service import MapService
+from src.api.utils import is_past_retry_cooldown
 
 
 class MapXmlParserService:
@@ -50,7 +53,9 @@ class MapXmlParserService:
         # Register handlers in the order they should run
         self.handlers: list[BaseXmlHandler] = [
             ModDescHandler(db, aws, assets),
-            MapsXmlHandler(db, aws, assets)
+            MapsXmlHandler(db, aws, assets),
+            InfoLayerHandler(db, aws),
+            FarmlandsXmlHandler(db, aws),
         ]
 
     def parse_map(self, map_obj: Map) -> None:
@@ -123,11 +128,10 @@ class MapXmlParserService:
         if map_obj.ingestion_status == IngestionStatus.EXTRACTED:
             return True
 
-        if map_obj.ingestion_status == IngestionStatus.FAILED:
-            cooldown_elapsed = datetime.now() - timedelta(minutes=self.RETRY_COOLDOWN_MINUTES)
-            return map_obj.ingestion_updated_at < cooldown_elapsed
+        if map_obj.ingestion_status != IngestionStatus.FAILED:
+            return False
 
-        return False
+        return is_past_retry_cooldown(map_obj, self.RETRY_COOLDOWN_MINUTES)
 
     def _update_ingestion_result(
             self,

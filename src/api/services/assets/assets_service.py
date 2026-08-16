@@ -57,9 +57,7 @@ class AssetsService:
         :return: The created or updated Asset.
         """
         converted_filename = self.image_converter.convert_filename(filename, self.OUTPUT_FORMAT)
-        asset_uri = self.build_asset_uri(
-            entity_id, converted_filename, settings.AWS_S3_ASSETS_BUCKET_NAME
-        )
+        asset_uri = self.build_asset_uri(entity_id, converted_filename)
 
         return self.register_asset(
             entity_id=entity_id,
@@ -94,7 +92,6 @@ class AssetsService:
         asset_uri: str = self.build_asset_uri(
             entity_id,
             converted_filename,
-            settings.AWS_S3_ASSETS_BUCKET_NAME
         )
 
         existing_assets: list[Asset] = self.asset_repository.get_by_entity(
@@ -155,7 +152,7 @@ class AssetsService:
 
         logger.debug("[Assets-Service]: Stored '%s' -> '%s'.", filename, asset_key)
 
-        return self.build_asset_uri(entity_id, converted_filename, settings.AWS_S3_ASSETS_BUCKET_NAME)
+        return self.build_asset_uri(entity_id, converted_filename)
 
     def register_asset(
             self,
@@ -210,18 +207,6 @@ class AssetsService:
         )
 
     @staticmethod
-    def build_asset_uri(entity_id: int, filename: str, bucket_name: str) -> str:
-        """
-        Construct the S3 URI for an asset in the assets bucket.
-
-        :param bucket_name: The name of the bucket to retrieve from.
-        :param entity_id: The owning entity's ID.
-        :param filename: The asset filename (should already be converted).
-        :return: Full S3 URI for the asset.
-        """
-        return f"s3://{bucket_name}/{AssetsService.build_asset_key(entity_id, filename)}"
-
-    @staticmethod
     def build_asset_key(entity_id: int, filename: str) -> str:
         """
         Construct the S3 key (no bucket/scheme) for an asset in the assets bucket.
@@ -231,3 +216,13 @@ class AssetsService:
         :return: S3 key, e.g. '123/assets/icon.webp'.
         """
         return f"{entity_id}/assets/{filename}"
+
+    def build_asset_uri(self, entity_id: int, filename: str) -> str:
+        """
+        Construct the S3 URI for an asset in the assets bucket.
+
+        :param entity_id: The owning entity's ID.
+        :param filename: The asset filename (should already be converted).
+        :return: Full S3 URI for the asset.
+        """
+        return self.assets_bucket.build_uri(self.build_asset_key(entity_id, filename))
