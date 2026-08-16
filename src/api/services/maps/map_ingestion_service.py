@@ -56,6 +56,8 @@ class MapIngestionService:
         self.info_layer_repository = info_layer_repository or InfoLayerRepository(db)
         self.farmland_repository = farmland_repository or FarmlandRepository(db)
 
+    VALID_STAGES = (IngestionStatus.PENDING, IngestionStatus.EXTRACTED, IngestionStatus.PARSED)
+
     async def get_new_maps(self) -> None:
         """
         Check ModHub for new or updated maps, scrape their metadata,
@@ -160,63 +162,81 @@ class MapIngestionService:
         """Pick up every PARSED map, transfer assets, and mark it COMPLETE."""
         pass
 
-    def reingest_map(self, map_id: int) -> None:
+    def reingest_map(self, map_id: int, stage: IngestionStatus) -> None:
         """
-        Manually trigger the re-ingestion of a map for a given Map ID.
+        Manually reingest a map, optionally starting from a later stage.
 
         :param map_id: The ModHub ID of the map to reingest.
-        :raises ValueError: If no map with the given ID exists in the database.
+        :param stage: Which stage to start the reingest from.
+        :raises ValueError: If no map with the given ID exists, or
+            from_stage isn't a supported starting point.
         """
+        if stage not in self.VALID_STAGES:
+            raise ValueError(f"Cannot reingest from stage '{stage.value}'.")
+
         map_obj = self.map_service.get_map_by_id(map_id)
 
         if map_obj is None:
             raise ValueError(f"No map found with ID {map_id}.")
 
-        logger.info("Starting manual reingest for '%s' (%d).", map_obj.name, map_obj.id)
-
-        self.map_service.update_map(
-            map_obj,
-            ingestion_status=IngestionStatus.DOWNLOADING,
-            ingestion_error=None,
+        logger.info(
+            "Starting manual reingest for '%s' (%d) from %s.",
+            map_obj.name,
+            map_obj.id,
+            stage.value,
         )
-        self._download_map(map_obj)
 
-        map_obj = self.map_service.get_map_by_id(map_id)
-
-        if map_obj.ingestion_status != IngestionStatus.DOWNLOADED:
-            logger.error(
-                "Reingest for '%s' (%d) aborted — download did not complete.",
-                map_obj.name,
-                map_obj.id,
+        if stage == IngestionStatus.PENDING:
+            self.map_service.update_map(
+                map_obj,
+                ingestion_status=IngestionStatus.DOWNLOADING,
+                ingestion_error=None,
             )
-            return
+            self._download_map(map_obj)
 
-        self.map_service.update_map(
-            map_obj,
-            ingestion_status=IngestionStatus.EXTRACTING,
-            ingestion_error=None,
-        )
-        self._extract_map(map_obj)
+            map_obj = self.map_service.get_map_by_id(map_id)
 
-        map_obj = self.map_service.get_map_by_id(map_id)
+            if map_obj.ingestion_status != IngestionStatus.DOWNLOADED:
+                logger.error(
+                    "Reingest for '%s' (%d) aborted — download did not complete.",
+                    map_obj.name,
+                    map_obj.id,
+                )
+                return
 
-        if map_obj.ingestion_status != IngestionStatus.EXTRACTED:
-            logger.error(
-                "Reingest for '%s' (%d) aborted — extraction did not complete.",
-                map_obj.name,
-                map_obj.id,
+            self.map_service.update_map(
+                map_obj,
+                ingestion_status=IngestionStatus.EXTRACTING,
+                ingestion_error=None,
             )
-            return
+            self._extract_map(map_obj)
+
+            map_obj = self.map_service.get_map_by_id(map_id)
+
+            if map_obj.ingestion_status != IngestionStatus.EXTRACTED:
+                logger.error(
+                    "Reingest for '%s' (%d) aborted — extraction did not complete.",
+                    map_obj.name,
+                    map_obj.id,
+                )
+                return
 
         self.xml_parser_service.parse_map(map_obj)
         self._reset_downstream_ingestion(map_obj)
 
         logger.info("Reingest complete for '%s' (%d).", map_obj.name, map_obj.id)
 
-    def reingest_all_maps(self) -> None:
+    def reingest_all_maps(self, stage: IngestionStatus) -> None:
         """
-        Reset every map back to PENDING for the scheduled pipeline to retry.
+        Reset every map to a given stage for the scheduled pipeline to
+        retry, rather than reprocessing sequentially here.
+
+        :param stage: Which stage to reset every map to.
+        :raises ValueError: If from_stage isn't a supported starting point.
         """
+        if stage not in self.VALID_STAGES:
+            raise ValueError(f"Cannot reingest from stage '{stage.value}'.")
+
         maps = self.map_service.get_maps()
 
         if not maps:
@@ -224,16 +244,22 @@ class MapIngestionService:
             return
 
         for map_obj in maps:
-            self.map_service.update_map(
-                map_obj,
-                ingestion_status=IngestionStatus.PENDING,
-                ingestion_error=None,
-                data_uri=None,
-            )
+            if stage == IngestionStatus.PENDING:
+                self.map_service.update_map(
+                    map_obj,
+                    ingestion_status=stage,
+                    ingestion_error=None,
+                    data_uri=None,
+                )
+            else:
+                self.map_service.update_map(
+                    map_obj,
+                    ingestion_status=stage,
+                    ingestion_error=None,
+                )
+                self._reset_downstream_ingestion(map_obj)
 
-        logger.info(
-            "Reset %d map(s) to PENDING.", len(maps)
-        )
+        logger.info("Reset %d map(s) to %s.", len(maps), stage.value)
 
     def _reset_downstream_ingestion(self, map_obj: Map) -> None:
         """

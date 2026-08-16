@@ -1,11 +1,11 @@
-from typing import Literal
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 
 from src.api.builder.farmland_builder import FarmlandBuilder
+from src.api.constants import IngestionStatus
 from src.api.core.dependencies import SessionDep
 from src.api.core.schema.maps.farmlands import FarmlandRescaleRequest
-from src.api.services.maps.map_extraction_service import MapExtractionService
 from src.api.services.maps.map_ingestion_service import MapIngestionService
 from src.api.services.maps.map_xml_parser_service import MapXmlParserService
 
@@ -18,24 +18,33 @@ async def reingest_mod(
     db: SessionDep,
     background_tasks: BackgroundTasks,
     mod_type: Literal["map"] = Query(default="map", description="The type of mod to reingest."),
+    stage: Annotated[
+        IngestionStatus, Query(description="The stage to re-ingest from.")
+    ] = IngestionStatus.PENDING,
 ):
     """
-    Endpoint to manually trigger the re-ingestion (Download, Extraction, etc.)
-    for a given mod.
+    Manually trigger the re-ingestion of a given mod from a given stage.
 
-    :param mod_id: The ModHub ID of the mod to reingest.
-    :param mod_type: The type of mod to reingest e.g. 'map'.
+    :param mod_id: (int) The ModHub ID of the mod to reingest.
+    :param mod_type: (str) The type of mod to reingest e.g. 'map'.
+    :param stage: (IngestionStatus) A stage to reingest from.
     :param db: The database session dependency.
     :param background_tasks: The Background tasks dependency.
     """
-    if mod_type == "map":
-        background_tasks.add_task(MapIngestionService(db=db).reingest_map, mod_id)
-        return {"message": f"Started re-ingest for map: '{mod_id}'"}
-    else:
+    if mod_type != "map":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"'{mod_type}' is not a valid mod_type."
         )
+
+    if stage not in MapIngestionService.VALID_STAGES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot reingest from stage '{stage.value}'.",
+        )
+
+    background_tasks.add_task(MapIngestionService(db=db).reingest_map, mod_id, stage)
+    return {"message": f"Started re-ingest for map '{mod_id}' from stage '{stage.value}'"}
 
 
 @router.post("/reingest", status_code=status.HTTP_202_ACCEPTED)
@@ -43,24 +52,32 @@ async def reingest_all_mods(
     db: SessionDep,
     background_tasks: BackgroundTasks,
     mod_type: Literal["map"] = Query(default="map", description="The type of mod to reingest."),
+    stage: Annotated[
+        IngestionStatus, Query(description="The stage to re-ingest from.")
+    ] = IngestionStatus.PENDING,
 ):
     """
-    Endpoint to re-ingest every mod of the given type.
+    Re-ingest every mod of a given type optionally starting from a later stage.
 
-    Resets each mod to PENDING rather than reprocessing sequentially,
-    letting the scheduled pipeline redrive them at its normal pace.
-    :param mod_type: The type of mod to reingest e.g. 'map'.
+    :param mod_type: (str) The type of mod to reingest e.g. 'map'.
+    :param stage: (IngestionStatus) A stage to reingest from.
     :param db: The database session dependency.
     :param background_tasks: The Background tasks dependency.
     """
-    if mod_type == "map":
-        background_tasks.add_task(MapIngestionService(db=db).reingest_all_maps)
-        return {"message": "Started re-ingest for all maps"}
-    else:
+    if mod_type != "map":
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"'{mod_type}' is not a valid mod_type."
         )
+
+    if stage not in MapIngestionService.VALID_STAGES:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Cannot reingest from stage '{stage.value}'.",
+        )
+
+    background_tasks.add_task(MapIngestionService(db=db).reingest_all_maps, stage)
+    return {"message": f"Started re-ingest for all maps from stage '{stage.value}'"}
 
 
 @router.post("/{mod_id}/rescale", status_code=status.HTTP_200_OK)
@@ -108,9 +125,7 @@ async def parse_xml_for_map(
 ):
     """
     (temp) Fetch and parse modDesc.xml and maps.xml directly from S3 for a
-    single map, returning both parsed models as raw JSON. Does not persist
-    anything — for inspecting parser output while testing.
-    :param mod_id: The ModHub ID of the mod to parse.
+    single map.
     """
     map_xml_parser = MapXmlParserService(db=db)
     map_obj = map_xml_parser.map_service.get_map_by_id(mod_id)
@@ -123,30 +138,3 @@ async def parse_xml_for_map(
 
     background_tasks.add_task(map_xml_parser.parse_map, map_obj)
     return {"message": f"Started parsing modDesc.xml for map '{mod_id}'"}
-
-
-@router.delete("/delete-extracted-files", status_code=status.HTTP_200_OK)
-async def delete_extracted_files(
-    db: SessionDep,
-    background_tasks: BackgroundTasks,
-):
-    """
-    (temp) Delete all extracted map files from S3.
-    """
-    background_tasks.add_task(
-        MapExtractionService(db=db).reset_extracted_files
-    )
-
-    return {"message": "Started deleting extracted map files"}
-
-
-@router.delete("/delete-zip-archives", status_code=status.HTTP_200_OK)
-async def delete_zip_archives(
-    db: SessionDep,
-    background_tasks: BackgroundTasks,
-):
-    """
-    (temp) Delete all zip archives from S3 for maps that have already been extracted.
-    """
-    background_tasks.add_task(MapExtractionService(db=db).delete_zip_archives)
-    return {"message": "Started deleting zip archives from S3"}
