@@ -40,7 +40,7 @@ class Farmland(SqlAlchemyBase):
 
     number: Mapped[int] = mapped_column(Integer, nullable=False)
     price_per_ha: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
-    price_scale: Mapped[float | None] = mapped_column(Numeric(5, 2), nullable=True)
+    price_scale: Mapped[float | None] = mapped_column(Numeric(10, 2), nullable=True)
     default: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     coordinates: Mapped[list | None] = mapped_column(JSON(none_as_null=True), nullable=True)

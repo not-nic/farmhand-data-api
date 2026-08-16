@@ -64,7 +64,7 @@ base_scheduler.add_job(JobModel(
     func=parse_map_xml,
     trigger=IntervalTrigger(seconds=30),
     id="parse_map_xml",
-    name="Parse modDesc.xml for extracted maps",
+    name="Parse XML for extracted maps",
     group="pipeline",
 ))
 
