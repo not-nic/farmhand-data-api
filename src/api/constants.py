@@ -86,6 +86,20 @@ class IngestionStatus(StrEnum):
     FAILED = "failed"
 
 
+class XmlHandler(StrEnum):
+    """
+    The XML handlers that run as part of the 'EXTRACTED' parse stage, in
+    the order they're registered in MapXmlParserService. Used to select a
+    subset of handlers to re-run on a reingest, e.g. just 'vehicles'.
+    """
+
+    MOD_DESC = "mod_desc"
+    VEHICLES = "vehicles"
+    MAPS = "maps"
+    INFO_LAYERS = "info_layers"
+    FARMLANDS = "farmlands"
+
+
 class AssetType(StrEnum):
     """
     Assets used in a farming simulator Mod,
@@ -99,13 +113,6 @@ class AssetType(StrEnum):
     ICON = "icon"
     OVERVIEW = "overview"
     PREVIEW = "preview"
-
-
-class EntityType(StrEnum):
-    """
-    Entity types that can own assets.
-    """
-    MAP = "map"
 
 
 class SoilType(StrEnum):
@@ -132,3 +139,150 @@ class AreaType(StrEnum):
     NO_WATER = "No Water"
     NEAR_WATER = "Near Water"
     UNKNOWN = "Unknown"
+
+
+class IgnoredFillType(StrEnum):
+    """
+    Fill types that are internal to the game and never shown, e.g. brake air.
+    """
+
+    AIR = "AIR"
+
+
+class VehicleCategory(StrEnum):
+    """
+    Vehicle shop categories Enum.
+    """
+
+    ANIMALTRANSPORT = "Animal Transport"
+    AUGERWAGONS = "Auger Wagons"
+    BALELOADERS = "Bale Loaders"
+    BALERSROUND = "Round Balers"
+    BALERSSQUARE = "Square Balers"
+    BALEWRAPPERS = "Bale Wrappers"
+    BALINGMISC = "Baling Equipment"
+    BANANACULTIVATION = "Banana Equipment"
+    BARRELS = "Barrels"
+    BEETHARVESTERCUTTERS = "Beet Harvester Headers"
+    BEETHARVESTERS = "Beet Harvesters"
+    BEETLOADING = "Beet Loaders"
+    BELTS = "Conveyor Belts"
+    CARS = "Cars"
+    COFFEECULTIVATION = "Coffee Equipment"
+    COMBINEWINDROWER = "Swathers"
+    CORNHEADERS = "Corn Headers"
+    COTTONHARVESTERS = "Cotton Harvesters"
+    COTTONTRANSPORT = "Cotton Transport"
+    CULTIVATORS = "Cultivators"
+    CUTTERS = "Headers"
+    CUTTERTRAILERS = "Header Trailers"
+    DISCHARROWS = "Disc Harrows"
+    FERTILIZERSPREADERS = "Fertilizer Spreaders"
+    FORAGEHARVESTERCUTTERS = "Forage Harvester Headers"
+    FORAGEHARVESTERCUTTERTRAILERS = "Forage Harvester Header Trailers"
+    FORAGEHARVESTERS = "Forage Harvesters"
+    FORAGEMIXERS = "Forage Mixers"
+    FORESTRYEXCAVATORS = "Forestry Excavators"
+    FORESTRYEXCAVATORTOOLS = "Forestry Excavator Tools"
+    FORESTRYFORWARDERS = "Forwarders"
+    FORESTRYHARVESTERS = "Forestry Harvesters"
+    FORESTRYMISC = "Forestry Equipment"
+    FORESTRYMULCHERS = "Forestry Mulchers"
+    FORESTRYPLANTERS = "Tree Planters"
+    FORESTRYSTUMPCUTTERS = "Stump Cutters"
+    FORESTRYWINCHES = "Forestry Winches"
+    FORKLIFTS = "Forklifts"
+    FRONTLOADERS = "Front Loaders"
+    FRONTLOADERTOOLS = "Front Loader Tools"
+    FRONTLOADERVEHICLES = "Front Loader Vehicles"
+    GRAPEHARVESTERS = "Grape Harvesters"
+    GRAPETOOLS = "Grape Tools"
+    GRAPETRAILERS = "Grape Trailers"
+    GRASSLANDCARE = "Grassland Care"
+    GREENBEANHARVESTERS = "Green Bean Harvesters"
+    HANDTOOLSMISC = "Hand Tools"
+    HARVESTERS = "Harvesters"
+    LEVELER = "Levelers"
+    LOADERWAGONS = "Loader Wagons"
+    LOWLOADERS = "Low Loaders"
+    MANURESPREADERS = "Manure Spreaders"
+    MISC = "Miscellaneous"
+    MISCDRIVABLES = "Miscellaneous Vehicles"
+    MOWERS = "Mowers"
+    MULCHERS = "Mulchers"
+    NEXAT = "NEXAT"
+    OLIVEHARVESTERS = "Olive Harvesters"
+    ONIONHARVESTING = "Onion Harvesters"
+    ONIONPLANTING = "Onion Planters"
+    PEAHARVESTERS = "Pea Harvesters"
+    PLANTERS = "Planters"
+    PLOWS = "Plows"
+    POTATOHARVESTING = "Potato Harvesters"
+    POTATOPLANTING = "Potato Planters"
+    POWERHARROWS = "Power Harrows"
+    RICEHARVESTERS = "Rice Harvesters"
+    RICEPLANTERS = "Rice Planters"
+    ROLLERS = "Rollers"
+    SEEDERS = "Seeders"
+    SEEDTANKS = "Seed Tanks"
+    SILOCOMPACTION = "Silo Compaction"
+    SKIDSTEERTOOLS = "Skid Steer Tools"
+    SKIDSTEERVEHICLES = "Skid Steers"
+    SLURRYTANKS = "Slurry Tanks"
+    SLURRYTOOLS = "Slurry Tools"
+    SLURRYTRANSPORT = "Slurry Transport"
+    SPADERS = "Spaders"
+    SPECIALHEADERS = "Special Headers"
+    SPINACHHARVESTERS = "Spinach Harvesters"
+    SPRAYERS = "Sprayers"
+    STONEPICKERS = "Stone Pickers"
+    STRAWBLOWERS = "Straw Blowers"
+    SUBSOILERS = "Subsoilers"
+    SUGARCANEHARVESTERS = "Sugarcane Harvesters"
+    SUGARCANEPLANTERS = "Sugarcane Planters"
+    SUGARCANETRANSPORT = "Sugarcane Transport"
+    TEDDERS = "Tedders"
+    TELELOADERTOOLS = "Telehandler Tools"
+    TELELOADERVEHICLES = "Telehandlers"
+    TRACTORSL = "Large Tractors"
+    TRACTORSM = "Medium Tractors"
+    TRACTORSS = "Small Tractors"
+    TRAILERS = "Trailers"
+    TRAILERSCHANGINGSYSTEM = "Hooklift Trailers"
+    TRAILERSSEMI = "Semi-Trailers"
+    TRUCKS = "Trucks"
+    VEGETABLEHARVESTERS = "Vegetable Harvesters"
+    VEGETABLEPLANTERS = "Vegetable Planters"
+    WEEDERS = "Weeders"
+    WEIGHTS = "Weights"
+    WHEELLOADERTOOLS = "Wheel Loader Tools"
+    WHEELLOADERVEHICLES = "Wheel Loaders"
+    WINDROWERS = "Windrowers"
+    WINTEREQUIPMENT = "Winter Equipment"
+    WOODCHIPPERS = "Wood Chippers"
+    WOODTRANSPORT = "Wood Transport"
+
+    @property
+    def slug(self) -> str:
+        """
+        :return: The slug for this category, e.g. "medium_tractors".
+        """
+        words = "".join(c if c.isalnum() else " " for c in self.value.lower()).split()
+        return "_".join(words)
+
+    @classmethod
+    def from_key(cls, key: str) -> VehicleCategory | None:
+        """
+        :param key: A raw shop category, ignoring case, e.g. "TRACTORSM".
+        :return: The matching category, or None if it is unknown (e.g. mod-added).
+        """
+        return cls.__members__.get(key.upper())
+
+    @classmethod
+    def from_slug(cls, slug: str) -> VehicleCategory | None:
+        """
+        :param slug: A category slug, ignoring case, e.g. "medium_tractors".
+        :return: The matching category, or None if no category has that slug.
+        """
+        slug = slug.lower()
+        return next((category for category in cls if category.slug == slug), None)

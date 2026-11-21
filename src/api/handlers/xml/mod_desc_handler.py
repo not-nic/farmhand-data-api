@@ -4,7 +4,7 @@ Handler for Farming Simulator modDesc.xml files.
 
 from sqlalchemy.orm import Session
 
-from src.api.constants import AssetType
+from src.api.constants import AssetType, XmlHandler
 from src.api.core.db.models import Map
 from src.api.core.db.models.mods import ChangeLog
 from src.api.core.logger import logger
@@ -22,6 +22,8 @@ class ModDescHandler(BaseXmlHandler):
     Handler class used for processing and persisting a mod description,
     creating 'assets' used within a map or mod.
     """
+
+    key = XmlHandler.MOD_DESC
 
     def __init__(
         self,

@@ -5,8 +5,13 @@ they can be imported by:
 """
 
 from src.api.core.db.models.assets import Asset
-from src.api.core.db.models.maps import Farmland, InfoLayer, Map, MapInformation
+from src.api.core.db.models.maps import Farmland, InfoLayer, Map, MapInformation, MapVehicle
 from src.api.core.db.models.mods import Dependency, ModDescription
+from src.api.core.db.models.vehicles import (
+    Vehicle,
+    VehicleFillUnitConfiguration,
+    VehicleMotorConfiguration,
+)
 
 __all__ = [
     "Map",
@@ -15,6 +20,10 @@ __all__ = [
     "MapInformation",
     "ModDescription",
     "Dependency",
-    "Asset"
+    "Asset",
+    "Vehicle",
+    "VehicleMotorConfiguration",
+    "VehicleFillUnitConfiguration",
+    "MapVehicle",
 ]
 

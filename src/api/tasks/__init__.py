@@ -17,6 +17,7 @@ from src.api.tasks.map_tasks import (
     retry_stalled_downloads,
 )
 from src.api.tasks.scheduler import JobModel, Scheduler
+from src.api.tasks.vehicle_tasks import generate_vehicle_assets
 
 base_scheduler = Scheduler()
 
@@ -42,6 +43,7 @@ base_scheduler.add_job(JobModel(
     name="Download PENDING maps to S3",
     group="pipeline",
     executor="downloads",
+    enabled=False
 ))
 
 
@@ -88,6 +90,15 @@ base_scheduler.add_job(JobModel(
 
 
 base_scheduler.add_job(JobModel(
+    func=generate_vehicle_assets,
+    trigger=IntervalTrigger(seconds=30),
+    id="generate_vehicle_assets",
+    name="Convert and upload pending vehicle assets",
+    group="pipeline",
+))
+
+
+base_scheduler.add_job(JobModel(
     func=process_info_layers,
     trigger=IntervalTrigger(seconds=30),
     id="process_info_layers",
@@ -103,4 +114,5 @@ base_scheduler.add_job(JobModel(
     id="retry_stalled_downloads",
     name="Reset stalled DOWNLOADING maps back to PENDING",
     group="recovery",
+    enabled=False
 ))

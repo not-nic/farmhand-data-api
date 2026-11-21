@@ -3,11 +3,10 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query, status
 
 from src.api.builder.farmland_builder import FarmlandBuilder
-from src.api.constants import IngestionStatus
+from src.api.constants import IngestionStatus, XmlHandler
 from src.api.core.dependencies import SessionDep
 from src.api.core.schema.maps.farmlands import FarmlandRescaleRequest
 from src.api.services.maps.map_ingestion_service import MapIngestionService
-from src.api.services.maps.map_xml_parser_service import MapXmlParserService
 
 router = APIRouter(prefix="/data", tags=["Data"])
 
@@ -21,6 +20,10 @@ async def reingest_mod(
     stage: Annotated[
         IngestionStatus, Query(description="The stage to re-ingest from.")
     ] = IngestionStatus.PENDING,
+    handlers: Annotated[
+        list[XmlHandler] | None,
+        Query(description="Only re-run these XML handlers. Requires stage=EXTRACTED."),
+    ] = None,
 ):
     """
     Manually trigger the re-ingestion of a given mod from a given stage.
@@ -28,6 +31,8 @@ async def reingest_mod(
     :param mod_id: (int) The ModHub ID of the mod to reingest.
     :param mod_type: (str) The type of mod to reingest e.g. 'map'.
     :param stage: (IngestionStatus) A stage to reingest from.
+    :param handlers: (list[XmlHandler] | None) Only re-run these XML handlers.
+        Requires stage=EXTRACTED.
     :param db: The database session dependency.
     :param background_tasks: The Background tasks dependency.
     """
@@ -43,8 +48,20 @@ async def reingest_mod(
             detail=f"Cannot reingest from stage '{stage.value}'.",
         )
 
-    background_tasks.add_task(MapIngestionService(db=db).reingest_map, mod_id, stage)
-    return {"message": f"Started re-ingest for map '{mod_id}' from stage '{stage.value}'"}
+    handlers = handlers or None
+
+    if handlers and stage != IngestionStatus.EXTRACTED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Handlers can only be selected when reingesting from stage 'EXTRACTED'.",
+        )
+
+    background_tasks.add_task(MapIngestionService(db=db).reingest_map, mod_id, stage, handlers)
+
+    message = f"Started re-ingest for map '{mod_id}' from stage '{stage.value}'"
+    if handlers:
+        message += f" (handlers: {', '.join(h.value for h in handlers)})"
+    return {"message": message}
 
 
 @router.post("/reingest", status_code=status.HTTP_202_ACCEPTED)
@@ -55,12 +72,18 @@ async def reingest_all_mods(
     stage: Annotated[
         IngestionStatus, Query(description="The stage to re-ingest from.")
     ] = IngestionStatus.PENDING,
+    handlers: Annotated[
+        list[XmlHandler] | None,
+        Query(description="Only re-run these XML handlers. Requires stage=EXTRACTED."),
+    ] = None,
 ):
     """
     Re-ingest every mod of a given type optionally starting from a later stage.
 
     :param mod_type: (str) The type of mod to reingest e.g. 'map'.
     :param stage: (IngestionStatus) A stage to reingest from.
+    :param handlers: (list[XmlHandler] | None) Only re-run these XML handlers.
+        Requires stage=EXTRACTED.
     :param db: The database session dependency.
     :param background_tasks: The Background tasks dependency.
     """
@@ -76,8 +99,20 @@ async def reingest_all_mods(
             detail=f"Cannot reingest from stage '{stage.value}'.",
         )
 
-    background_tasks.add_task(MapIngestionService(db=db).reingest_all_maps, stage)
-    return {"message": f"Started re-ingest for all maps from stage '{stage.value}'"}
+    handlers = handlers or None
+
+    if handlers and stage != IngestionStatus.EXTRACTED:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Handlers can only be selected when reingesting from stage 'EXTRACTED'.",
+        )
+
+    background_tasks.add_task(MapIngestionService(db=db).reingest_all_maps, stage, handlers)
+
+    message = f"Started re-ingest for all maps from stage '{stage.value}'"
+    if handlers:
+        message += f" (handlers: {', '.join(h.value for h in handlers)})"
+    return {"message": message}
 
 
 @router.post("/{mod_id}/rescale", status_code=status.HTTP_200_OK)
@@ -115,26 +150,3 @@ async def rescale_farmlands(
         ) from exc
 
     return result
-
-
-@router.post("/parse-xml/{mod_id}", status_code=status.HTTP_200_OK)
-async def parse_xml_for_map(
-    mod_id: int,
-    background_tasks: BackgroundTasks,
-    db: SessionDep
-):
-    """
-    (temp) Fetch and parse modDesc.xml and maps.xml directly from S3 for a
-    single map.
-    """
-    map_xml_parser = MapXmlParserService(db=db)
-    map_obj = map_xml_parser.map_service.get_map_by_id(mod_id)
-
-    if not map_obj:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"No mod found with ID {mod_id}.",
-        )
-
-    background_tasks.add_task(map_xml_parser.parse_map, map_obj)
-    return {"message": f"Started parsing modDesc.xml for map '{mod_id}'"}

@@ -4,6 +4,7 @@ Python module containing a handler for a map's .i3d file.
 
 from sqlalchemy.orm import Session
 
+from src.api.constants import XmlHandler
 from src.api.core.db.models import Map
 from src.api.core.logger import logger
 from src.api.core.repositories.info_layer_repository import InfoLayerRepository
@@ -17,6 +18,8 @@ class InfoLayerHandler(BaseXmlHandler[I3dModel]):
     """
     Processes a map's .i3d file for its InfoLayer entries.
     """
+
+    key = XmlHandler.INFO_LAYERS
 
     def __init__(
         self,

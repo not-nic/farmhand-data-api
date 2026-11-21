@@ -1,6 +1,7 @@
 """
 Farmhand util functions.
 """
+import re
 from datetime import datetime, timedelta
 
 from fastapi.exceptions import RequestValidationError
@@ -109,3 +110,80 @@ def is_past_retry_cooldown(map_obj: Map, cooldown_minutes: int) -> bool:
 
     cooldown_elapsed = datetime.now() - timedelta(minutes=cooldown_minutes)
     return map_obj.ingestion_updated_at < cooldown_elapsed
+
+
+def normalise_config_path(path: str) -> str | None:
+    """
+    Normalise a Farming Simulator config path into a canonical vehicle key.
+
+    Base game paths ("data/vehicles/...", "$data/vehicles/...", "vehicles/...") become
+    "vehicles/...", and DLC paths (absolute ".../pdlc/<pack>/vehicles/..." or
+    "$pdlcdir$<pack>/vehicles/...") become "pdlc/<pack>/vehicles/...".
+
+    Mod content ("$moddir$", "$mapdir$", "/mods/") and anything not under a
+    "vehicles/" segment is out of scope.
+
+    :param path: A given path, e.g. "$data/vehicles/fendt/vario700/vario700.xml".
+    :return: The canonical key, e.g. "vehicles/fendt/vario700/vario700.xml", or None if out of scope.
+    """
+    path = path.strip().replace("\\", "/")
+    if path.startswith(("$moddir$", "$mapdir$")) or "/mods/" in path.lower():
+        return None
+
+    if path.startswith("$pdlcdir$"):
+        dlc_path = path.removeprefix("$pdlcdir$")
+    elif "/pdlc/" in path:
+        dlc_path = path.split("/pdlc/", 1)[1]
+    else:
+        dlc_path = None
+
+    if dlc_path is not None:
+        segments = dlc_path.split("/")
+        if len(segments) > 2 and segments[1] == "vehicles":
+            return f"pdlc/{dlc_path}"
+        return None
+
+    for prefix in ("$data/", "data/"):
+        if path.startswith(prefix):
+            path = path.removeprefix(prefix)
+            break
+    return path if path.startswith("vehicles/") else None
+
+
+def label_from_key(value: str) -> str:
+    """
+    Turn a raw Farming Simulator key into readable text, used when no l10n text exists.
+
+    E.g. "teleHandler" -> "Tele Handler", "GRASS_WINDROW" -> "Grass Windrow".
+
+    :param value: A camelCase, snake_case or upper-case key.
+    :return: The key split into title-cased words.
+    """
+    words = re.sub(r"(?<=[a-z0-9])(?=[A-Z])", " ", value).replace("_", " ").split()
+    return " ".join(word.capitalize() for word in words)
+
+
+def display_name(brand: str | None, name: str) -> str:
+    """
+    Prefix a name with its brand, as the in-game shop does for owned vehicles.
+
+    :param brand: The display brand, e.g. "Fendt".
+    :param name: The vehicle or motor name, e.g. "728 Vario".
+    :return: E.g. "Fendt 728 Vario", without repeating a brand the name already starts with.
+    """
+    if not brand or name.lower().startswith(brand.lower()):
+        return name
+    return f"{brand} {name}"
+
+
+def strip_dlc_prefix(path: str) -> str:
+    """
+    Drop the "pdlc/<pack>/" prefix of a canonical DLC path, giving its path inside an
+    archive that stores DLC content alongside the base game under "vehicles/".
+
+    :param path: E.g. "pdlc/skyAgriculturePack/vehicles/skyAgriculture/hr3000_30/hr3000_30.xml".
+    :return: E.g. "vehicles/skyAgriculture/hr3000_30/hr3000_30.xml", or the path unchanged.
+    """
+    if path.startswith("pdlc/"):
+        return path.split("/", 2)[2] if path.count("/") >= 2 else path
+    return path

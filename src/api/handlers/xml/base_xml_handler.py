@@ -6,12 +6,13 @@ parse and persist lifecycle for a single XML file type.
 """
 
 from abc import ABC, abstractmethod
+from typing import ClassVar
 
 from botocore.exceptions import ClientError
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from src.api.constants import AssetType, EntityType
+from src.api.constants import AssetType, XmlHandler
 from src.api.core.db.models import Map
 from src.api.core.logger import logger
 from src.api.services.assets.assets_service import AssetsService
@@ -26,6 +27,9 @@ class BaseXmlHandler[T: BaseModel](ABC):
     function to fetch from S3, delegate to the appropriate parser, and persist
     the result. _fetch is provided as a shared S3 helper.
     """
+
+    key: ClassVar[XmlHandler]
+    """Identifies which handler this is, used to select a subset of handlers to run."""
 
     def __init__(
         self,
@@ -92,8 +96,7 @@ class BaseXmlHandler[T: BaseModel](ABC):
             raise ValueError(f"{self.name} has no assets_service configured.")
 
         self.assets_service.register_asset_from_filename(
-            entity_id=map_obj.id,
-            entity_type=EntityType.MAP,
+            map_id=map_obj.id,
             filename=filename,
             asset_type=asset_type,
         )

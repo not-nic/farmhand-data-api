@@ -10,7 +10,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 if TYPE_CHECKING:
     from src.api.core.db.models.assets import Asset
-    from src.api.core.db.models.maps import Farmland, InfoLayer, MapInformation
+    from src.api.core.db.models.maps import Farmland, InfoLayer, MapInformation, MapVehicle
     from src.api.core.db.models.mods import ChangeLog, Dependency, ModDescription
 
 from src.api.constants import IngestionStatus
@@ -69,9 +69,7 @@ class Map(SqlAlchemyBase):
     )
 
     assets: Mapped[list[Asset]] = relationship(
-        "Asset",
-        primaryjoin="and_(foreign(Asset.entity_id) == Map.id, Asset.entity_type == 'map')",
-        viewonly=True,
+        "Asset", back_populates="map", cascade="all, delete-orphan"
     )
 
     changelogs: Mapped[list[ChangeLog]] = relationship(
@@ -88,4 +86,8 @@ class Map(SqlAlchemyBase):
 
     farmlands: Mapped[list[Farmland]] = relationship(
         "Farmland", back_populates="map", cascade="all, delete-orphan"
+    )
+
+    vehicles: Mapped[list[MapVehicle]] = relationship(
+        "MapVehicle", back_populates="map", cascade="all, delete-orphan"
     )
