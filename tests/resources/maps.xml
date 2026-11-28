@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="utf-8" standalone="no" ?>
+<map width="2048" height="2048" imageFilename="maps/Mechet_overview.dds"  mapFieldColor="0.246 0.159 0.102" mapGrassFieldColor="0.102 0.178 0.084" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="../../../shared/maps/config/schema/mission00.xsd">
+    <filename>maps/mechet.i3d</filename>
+
+    <farmlands filename="maps/config/farmlands.xml" />
+    <fields filename="maps/config/fields.xml" />
+    <fillTypes filename="maps/config/fillTypes.xml" />
+    
+    <animals filename="maps/animals/animals.xml">
+        <names filename="$dataS/character/animalNames.xml" />
+        <food filename="maps/animals/animalFood.xml" />
+    </animals>
+
+    <precisionFarming>
+        <soilMap filename="maps/data/infoLayer_soilMap.grle"/>
+
+        <applicationRates>
+            <applicationRate fillType="COMPOST" autoAdjustToFruit="false" regularRate="60">
+                <soil soilTypeIndex="1" rate="55"/> <!-- 55kg/ha -->
+                <soil soilTypeIndex="2" rate="70"/> <!-- 70kg/ha -->
+                <soil soilTypeIndex="3" rate="85"/> <!-- 85kg/ha -->
+                <soil soilTypeIndex="4" rate="70"/> <!-- 70kg/ha -->
+            </applicationRate>
+        </applicationRates>
+
+        <fertilizerUsage>
+            <nAmount fillType="COMPOST" amount="0.004"/> <!-- 4kg N -->
+        </fertilizerUsage>
+
+        <fruitRequirements>
+		<!-- Crops for threshing -->
+			<fruitRequirement fruitTypeName="RYE">
+                <soil soilTypeIndex="1" targetLevel="140" reduction="140" yieldPotential="0.8"/>
+				<soil soilTypeIndex="2" targetLevel="180" reduction="160" yieldPotential="1.0"/>
+				<soil soilTypeIndex="3" targetLevel="200" reduction="180" yieldPotential="1.25"/>
+				<soil soilTypeIndex="4" targetLevel="160" reduction="160" yieldPotential="0.9"/>
+            </fruitRequirement>	
+			<fruitRequirement fruitTypeName="TRITICALE">	
+                <soil soilTypeIndex="1" targetLevel="120" reduction="100" yieldPotential="0.8"/>
+				<soil soilTypeIndex="2" targetLevel="160" reduction="140" yieldPotential="1.0"/>
+				<soil soilTypeIndex="3" targetLevel="200" reduction="180" yieldPotential="1.25"/>
+				<soil soilTypeIndex="4" targetLevel="180" reduction="140" yieldPotential="0.9"/>
+            </fruitRequirement>             	
+			<fruitRequirement fruitTypeName="SPELT">	
+                <soil soilTypeIndex="1" targetLevel="80" reduction="60" yieldPotential="0.8"/>
+				<soil soilTypeIndex="2" targetLevel="100" reduction="80" yieldPotential="1.0"/>
+				<soil soilTypeIndex="3" targetLevel="140" reduction="120" yieldPotential="1.25"/>
+				<soil soilTypeIndex="4" targetLevel="100" reduction="80" yieldPotential="0.9"/>
+            </fruitRequirement> 		 
+            <fruitRequirement fruitTypeName="MUSTARD">	
+                <soil soilTypeIndex="1" targetLevel="140" reduction="140" yieldPotential="0.8"/>
+				<soil soilTypeIndex="2" targetLevel="180" reduction="160" yieldPotential="1.0"/>
+				<soil soilTypeIndex="3" targetLevel="200" reduction="180" yieldPotential="1.25"/>
+				<soil soilTypeIndex="4" targetLevel="160" reduction="160" yieldPotential="0.9"/>
+            </fruitRequirement>  
+            <fruitRequirement fruitTypeName="WINTERWHEAT">
+                <soil soilTypeIndex="1" targetLevel="140" reduction="140" yieldPotential="0.8"/>
+				<soil soilTypeIndex="2" targetLevel="180" reduction="160" yieldPotential="1.0"/>
+				<soil soilTypeIndex="3" targetLevel="200" reduction="180" yieldPotential="1.25"/>
+				<soil soilTypeIndex="4" targetLevel="160" reduction="160" yieldPotential="0.9"/>
+            </fruitRequirement>
+            <fruitRequirement fruitTypeName="WINTERBARLEY">
+                <soil soilTypeIndex="1" targetLevel="120" reduction="100" yieldPotential="0.8"/>
+				<soil soilTypeIndex="2" targetLevel="140" reduction="120" yieldPotential="1.0"/>
+				<soil soilTypeIndex="3" targetLevel="180" reduction="160" yieldPotential="1.25"/>
+				<soil soilTypeIndex="4" targetLevel="120" reduction="100" yieldPotential="0.9"/>
+            </fruitRequirement>
+		<!-- Crops for chopping or mowing -->
+			<fruitRequirement fruitTypeName="GREENRYE">
+                <soil soilTypeIndex="1" targetLevel="140" reduction="140" yieldPotential="0.8"/>
+				<soil soilTypeIndex="2" targetLevel="180" reduction="160" yieldPotential="1.0"/>
+				<soil soilTypeIndex="3" targetLevel="200" reduction="180" yieldPotential="1.25"/>
+				<soil soilTypeIndex="4" targetLevel="160" reduction="160" yieldPotential="0.9"/>
+            </fruitRequirement> 			
+			<fruitRequirement fruitTypeName="VETCHRYE" alwaysAllowFertilization="true" ignoreOverfertilization="true" availableAsDefaultRate="false">
+                <soil soilTypeIndex="1" targetLevel="60" reduction="60" yieldPotential="0.8"/>
+                <soil soilTypeIndex="2" targetLevel="80" reduction="75" yieldPotential="1.0"/>
+                <soil soilTypeIndex="3" targetLevel="100" reduction="100" yieldPotential="1.25"/>
+                <soil soilTypeIndex="4" targetLevel="70" reduction="70" yieldPotential="0.9"/>
+            </fruitRequirement> 
+			<fruitRequirement fruitTypeName="FIELDGRASS" alwaysAllowFertilization="true" ignoreOverfertilization="true">
+                <soil soilTypeIndex="1" targetLevel="50" reduction="40" yieldPotential="0.8"/>
+                <soil soilTypeIndex="2" targetLevel="55" reduction="40" yieldPotential="1.0"/>
+                <soil soilTypeIndex="3" targetLevel="65" reduction="50" yieldPotential="1.25"/>
+                <soil soilTypeIndex="4" targetLevel="65" reduction="55" yieldPotential="0.9"/>
+            </fruitRequirement>		
+			<fruitRequirement fruitTypeName="SILAGEMAIZE">
+                <soil soilTypeIndex="1" targetLevel="120" reduction="80" reductionForage="100" yieldPotential="0.8"/>
+                <soil soilTypeIndex="2" targetLevel="160" reduction="120" reductionForage="140" yieldPotential="1.0"/>
+                <soil soilTypeIndex="3" targetLevel="200" reduction="150" reductionForage="180" yieldPotential="1.25"/>
+                <soil soilTypeIndex="4" targetLevel="180" reduction="110" reductionForage="140" yieldPotential="0.9"/>
+            </fruitRequirement>	
+            <fruitRequirement fruitTypeName="alfalfa" alwaysAllowFertilization="true" ignoreOverfertilization="true">
+                <soil soilTypeIndex="1" targetLevel="20" reduction="20" yieldPotential="0.8"/>
+                <soil soilTypeIndex="2" targetLevel="40" reduction="40" yieldPotential="1.0"/>
+                <soil soilTypeIndex="3" targetLevel="60" reduction="60" yieldPotential="1.25"/>
+                <soil soilTypeIndex="4" targetLevel="40" reduction="40" yieldPotential="0.9"/>
+            </fruitRequirement>
+            <fruitRequirement fruitTypeName="clover" alwaysAllowFertilization="true" ignoreOverfertilization="true">
+                <soil soilTypeIndex="1" targetLevel="40" reduction="40" yieldPotential="0.8"/>
+                <soil soilTypeIndex="2" targetLevel="60" reduction="60" yieldPotential="1.0"/>
+                <soil soilTypeIndex="3" targetLevel="80" reduction="80" yieldPotential="1.25"/>
+                <soil soilTypeIndex="4" targetLevel="40" reduction="40" yieldPotential="0.9"/>
+            </fruitRequirement>
+		<!-- Cover crops -->                     
+			<fruitRequirement fruitTypeName="FLOWERINGCATCHCROP" alwaysAllowFertilization="true" ignoreOverfertilization="true" availableAsDefaultRate="false">
+                <soil soilTypeIndex="1" targetLevel="0" reduction="0" yieldPotential="0"/>
+                <soil soilTypeIndex="2" targetLevel="0" reduction="0" yieldPotential="0"/>
+                <soil soilTypeIndex="3" targetLevel="0" reduction="0" yieldPotential="0"/>
+                <soil soilTypeIndex="4" targetLevel="0" reduction="0" yieldPotential="0"/>
+            </fruitRequirement>
+        </fruitRequirements>
+        
+        <seedRateMap>
+            <rateValues>
+                <rateValue value="1" text="$l10n_ui_seedRate_low" color="0.1683 0.4793 0.3050" colorBlind="0.0061 0.0061 0.0130"/>
+                <rateValue value="2" text="$l10n_ui_seedRate_medium" color="0.9301 0.7304 0.4179" colorBlind="0.6172 0.6172 0.0263"/>
+                <rateValue value="3" text="$l10n_ui_seedRate_high" color="0.6105 0.0578 0.0409" colorBlind="0.0578 0.0578 0.2383"/>
+            </rateValues>
+
+            <fruitTypes>
+			<!-- Crops for threshing -->
+                <fruitType name="RYE">
+                    <seedRates rates="301 331 361" usages="0.000809 0.000847 0.000924"/>
+
+				    <soilTypes>
+				    	<soilType index="1" yields="0.800 1.000 1.250"/>
+				    	<soilType index="2" yields="1.000 1.250 1.250"/>
+				    	<soilType index="3" yields="1.250 1.000 0.800"/>
+				    	<soilType index="4" yields="1.250 1.000 0.800"/>
+				    </soilTypes>
+                </fruitType>  
+                <fruitType name="TRITICALE">
+                    <seedRates rates="302 326 349" usages="0.017810 0.019180 0.020550"/>
+
+				    <soilTypes>
+				    	<soilType index="1" yields="0.800 0.800 1.250"/>
+				    	<soilType index="2" yields="0.800 1.250 0.800"/>
+				    	<soilType index="3" yields="1.000 1.000 1.000"/>
+				    	<soilType index="4" yields="1.000 1.000 1.250"/>
+				    </soilTypes>
+                </fruitType>           
+				<fruitType name="SPELT">
+                    <seedRates rates="414 438 461" usages="0.028620 0.030210 0.031800"/>
+
+				    <soilTypes>
+				    	<soilType index="1" yields="1.250 1.000 0.800"/>
+				    	<soilType index="2" yields="0.800 1.000 1.000"/>
+				    	<soilType index="3" yields="1.000 1.000 1.250"/>
+				    	<soilType index="4" yields="1.000 1.000 0.800"/>
+				    </soilTypes>
+                </fruitType>
+                <fruitType name="MUSTARD">
+                    <seedRates rates="395 422 448" usages="0.031650 0.033760 0.035870"/>
+
+				    <soilTypes>
+				    	<soilType index="1" yields="0.800 1.000 1.250"/>
+				    	<soilType index="2" yields="1.000 1.000 1.250"/>
+				    	<soilType index="3" yields="1.000 1.250 1.250"/>
+				    	<soilType index="4" yields="0.800 1.250 0.800"/>
+				    </soilTypes>
+                </fruitType>
+                <fruitType name="WINTERWHEAT">
+                    <seedRates rates="420 446 472" usages="0.020000 0.021250 0.022500"/>
+
+				    <soilTypes>
+				    	<soilType index="1" yields="0.800 1.000 0.800"/>
+				    	<soilType index="2" yields="1.000 1.000 0.800"/>
+				    	<soilType index="3" yields="1.000 1.000 0.800"/>
+				    	<soilType index="4" yields="1.000 1.000 0.800"/>
+				    </soilTypes>
+                </fruitType>
+                <fruitType name="WINTERBARLEY">
+                    <seedRates rates="300 320 340" usages="0.023078 0.024616 0.026155"/>
+
+			    	<soilTypes>
+			    		<soilType index="1" yields="0.800 1.200 1.000"/>
+			    		<soilType index="2" yields="0.800 1.250 1.000"/>
+			    		<soilType index="3" yields="1.000 1.000 1.250"/>
+			    		<soilType index="4" yields="0.800 1.250 1.000"/>
+			    	</soilTypes>
+                </fruitType>
+			    <!-- Crops for chopping or mowing -->
+				<fruitType name="GREENRYE">
+                    <seedRates rates="22 23 27" usages="0.022661 0.023994 0.026660"/>
+
+				    <soilTypes>
+				    	<soilType index="1" yields="0.875 1.000 0.937"/>
+				    	<soilType index="2" yields="0.900 1.000 0.950"/>
+				    	<soilType index="3" yields="1.000 0.960 0.920"/>
+				    	<soilType index="4" yields="0.777 1.000 0.888"/>
+				    </soilTypes>
+                </fruitType>				
+				<fruitType name="VETCHRYE">
+                    <seedRates rates="22 23 27" usages="0.022661 0.023994 0.026660"/>
+
+				    <soilTypes>
+				    	<soilType index="1" yields="0.875 1.000 0.937"/>
+				    	<soilType index="2" yields="0.900 1.000 0.950"/>
+				    	<soilType index="3" yields="1.000 0.960 0.920"/>
+				    	<soilType index="4" yields="0.777 1.000 0.888"/>
+				    </soilTypes>
+                </fruitType>
+				<fruitType name="FIELDGRASS">
+                    <seedRates rates="667 833 833" usages="0.003333 0.004167 0.004167"/>
+
+				    <soilTypes>
+				    	<soilType index="1" yields="0.875 1.000 1.125"/>
+				    	<soilType index="2" yields="0.950 1.000 1.000"/>
+				    	<soilType index="3" yields="1.000 1.000 1.000"/>
+				    	<soilType index="4" yields="0.777 1.000 1.111"/>
+				    </soilTypes>                   
+                </fruitType> 
+				<fruitType name="SILAGEMAIZE">
+                    <seedRates rates="7 8 9" usages="0.003000 0.003429 0.003857"/>
+
+				    <soilTypes>
+				    	<soilType index="1" yields="0.800 1.000 0.800"/>
+				    	<soilType index="2" yields="1.000 1.000 1.250"/>
+				    	<soilType index="3" yields="1.000 1.250 1.000"/>
+				    	<soilType index="4" yields="1.000 1.250 0.800"/>
+				    </soilTypes>
+                </fruitType>    
+                <fruitType name="ALFALFA">
+                    <seedRates rates="1333 1667 1667" usages="0.002667 0.003333 0.003333"/>
+
+				    <soilTypes>
+				    	<soilType index="1" yields="0.875 1.000 1.125"/>
+				    	<soilType index="2" yields="0.950 1.000 1.000"/>
+				    	<soilType index="3" yields="1.000 1.000 1.000"/>
+				    	<soilType index="4" yields="0.777 1.000 1.111"/>
+				    </soilTypes>                   
+                </fruitType> 
+                <fruitType name="CLOVER">
+                    <seedRates rates="588 706 706" usages="0.001176 0.001412 0.001412"/>
+
+				    <soilTypes>
+				    	<soilType index="1" yields="0.875 1.000 1.125"/>
+				    	<soilType index="2" yields="0.950 1.000 1.000"/>
+				    	<soilType index="3" yields="1.000 1.000 1.000"/>
+				    	<soilType index="4" yields="0.777 1.000 1.111"/>
+				    </soilTypes>                   
+                </fruitType> 
+			<!-- Cover crops -->            
+				<fruitType name="FLOWERINGCATCHCROP">
+                    <seedRates rates="20 30 40" usages="0.003 0.004 0.005"/>
+                    
+                     <soilTypes>
+                        <soilType index="1" yields="1.000 1.000 1.000"/>
+                        <soilType index="2" yields="0.950 1.000 1.000"/>
+                        <soilType index="3" yields="0.875 1.000 1.125"/>
+                        <soilType index="4" yields="0.777 1.000 1.111"/>
+                    </soilTypes>                    
+                </fruitType>                 
+            </fruitTypes>
+        </seedRateMap>
+		
+		<subsidies>
+            <coverCropBonus>
+                <fruitType name="FLOWERINGCATCHCROP" bonusPerHa="225 170 125" />
+                <fruitType name="VETCHRYE" bonusPerHa="180 140 90" />
+            </coverCropBonus>
+        </subsidies>
+	</precisionFarming>
+    <vertexBufferMemoryUsage>124810752</vertexBufferMemoryUsage>
+    <indexBufferMemoryUsage>23648512</indexBufferMemoryUsage>
+    <textureMemoryUsage>1033306112</textureMemoryUsage>
+</map>

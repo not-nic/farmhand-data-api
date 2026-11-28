@@ -3,17 +3,20 @@ Module containing Map pydantic models.
 """
 
 from datetime import date
+from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, field_validator
 
 from src.api.constants import FarmhandMapFilters
-from src.api.core.db.models import Map
+from src.api.core.db.models import Map, MapVehicle
 from src.api.core.schema.assets import AssetResponse
 from src.api.core.schema.maps.farmlands import FarmlandResponse
 from src.api.core.schema.mods.mod_desc import (
     ChangeLogResponse,
     DependencyResponse,
 )
+from src.api.core.schema.vehicles.vehicle import category_label, icon_uri
+from src.api.utils import display_name
 
 
 class MapModel(BaseModel):
@@ -62,6 +65,38 @@ class MapModel(BaseModel):
                 )
 
 
+class MapVehicleResponse(BaseModel):
+    """
+    Pydantic model summarising a map's starting vehicle. Full details and specs
+    come from GET /vehicles/{id}.
+    """
+
+    id: UUID
+    name: str
+    brand: str | None = None
+    category: str | None = None
+    image: str | None = None
+
+    @classmethod
+    def from_map_vehicle(cls, map_vehicle: MapVehicle) -> MapVehicleResponse:
+        """
+        Create a pydantic model from a MapVehicle database object.
+        :param map_vehicle: A given MapVehicle database object.
+        :return: The vehicle summary, named as the in-game shop shows it for the
+            selected motor, e.g. "Fendt 728 Vario".
+        """
+        vehicle = map_vehicle.vehicle
+        motor = map_vehicle.motor_configuration
+        base_name = (motor and (motor.vehicle_name or motor.name)) or vehicle.name
+        return cls(
+            id=vehicle.id,
+            name=display_name(vehicle.brand, base_name),
+            brand=vehicle.brand,
+            category=category_label(vehicle),
+            image=icon_uri(vehicle),
+        )
+
+
 class MapResponse(BaseModel):
     """
     Pydantic model for the map response object.
@@ -79,6 +114,7 @@ class MapResponse(BaseModel):
     assets: list[AssetResponse] = []
     changelogs: list[ChangeLogResponse] = []
     farmlands: list[FarmlandResponse] = []
+    vehicles: list[MapVehicleResponse] = []
     width: int | None = None
     height: int | None = None
 
@@ -106,6 +142,9 @@ class MapResponse(BaseModel):
         farmlands: list[FarmlandResponse] = [
             FarmlandResponse.model_validate(f) for f in map_obj.farmlands
         ]
+        vehicles: list[MapVehicleResponse] = [
+            MapVehicleResponse.from_map_vehicle(v) for v in map_obj.vehicles
+        ]
 
         return cls(
             id=map_obj.id,
@@ -120,6 +159,7 @@ class MapResponse(BaseModel):
             assets=assets,
             changelogs=changelogs,
             farmlands=farmlands,
+            vehicles=vehicles,
             width=width,
             height=height,
         )

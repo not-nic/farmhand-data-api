@@ -4,6 +4,7 @@ Python module containing a handler for a map's farmlands.xml file.
 
 from sqlalchemy.orm import Session
 
+from src.api.constants import XmlHandler
 from src.api.core.db.models import Map
 from src.api.core.logger import logger
 from src.api.core.repositories.farmland_repository import FarmlandRepository
@@ -21,6 +22,8 @@ class FarmlandsXmlHandler(BaseXmlHandler[FarmlandsXmlModel]):
     Processes a map's farmlands.xml file into Farmland rows. coordinates
     and size_ha are left null until the geometry extraction job runs.
     """
+
+    key = XmlHandler.FARMLANDS
 
     def __init__(
         self,

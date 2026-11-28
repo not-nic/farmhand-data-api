@@ -42,7 +42,7 @@ def db():
 
 
 @pytest.fixture(scope="session")
-def client(db):
+def client():
     """
     Fixture for a FastAPI test client
     """

@@ -5,7 +5,7 @@ make map assets accessible to the UI.
 
 from sqlalchemy.orm import Session
 
-from src.api.constants import AssetType, ContentType, EntityType
+from src.api.constants import AssetType, ContentType
 from src.api.core.config import settings
 from src.api.core.db.models.assets import Asset
 from src.api.core.logger import logger
@@ -42,26 +42,23 @@ class AssetsService:
 
     def register_asset_from_filename(
             self,
-            entity_id: int,
-            entity_type: EntityType,
+            map_id: int,
             filename: str,
             asset_type: AssetType,
     ) -> Asset:
         """
         Convert a raw .dds filename to its target output format, and build
         its S3 URI and register an asset for ingestion.
-        :param entity_id: The ID of the owning entity.
-        :param entity_type: The type of entity (map, vehicle, etc.).
+        :param map_id: The ID of the owning map.
         :param filename: The original .dds filename from the XML.
         :param asset_type: The type of asset (icon, preview, overview, etc.).
         :return: The created or updated Asset.
         """
         converted_filename = self.image_converter.convert_filename(filename, self.OUTPUT_FORMAT)
-        asset_uri = self.build_asset_uri(entity_id, converted_filename)
+        asset_uri = self.build_asset_uri(map_id, converted_filename)
 
         return self.register_asset(
-            entity_id=entity_id,
-            entity_type=entity_type,
+            map_id=map_id,
             asset_type=asset_type,
             filename=filename,
             asset_uri=asset_uri,
@@ -69,9 +66,8 @@ class AssetsService:
 
     def ingest_asset(
             self,
-            entity_id: int,
+            map_id: int,
             data_uri: str,
-            entity_type: EntityType,
             filename: str,
             asset_type: AssetType,
             force: bool = False,
@@ -80,9 +76,8 @@ class AssetsService:
         Ingest an asset is stored and registered, converting only when
         necessary.
 
-        :param entity_id: The ID of the owning entity.
+        :param map_id: The ID of the owning map.
         :param data_uri: Base 'ingest' URI containing the raw assets.
-        :param entity_type: The type of entity (map, vehicle, etc.).
         :param filename: The original .dds filename from the XML.
         :param asset_type: The type of asset (icon, overview, etc.).
         :param force: Re-convert and re-upload even if already registered.
@@ -90,30 +85,21 @@ class AssetsService:
         """
         converted_filename: str = self.image_converter.convert_filename(filename, self.OUTPUT_FORMAT)
         asset_uri: str = self.build_asset_uri(
-            entity_id,
+            map_id,
             converted_filename,
         )
 
-        existing_assets: list[Asset] = self.asset_repository.get_by_entity(
-            entity_type=entity_type,
-            entity_id=entity_id,
-        )
-
-        existing: Asset | None = next(
-            (asset for asset in existing_assets if asset.asset_type == asset_type),
-            None,
-        )
+        existing: Asset | None = self.asset_repository.get_by_map_and_type(map_id, asset_type)
 
         if force or existing is None or existing.asset_uri != asset_uri:
             self.store_converted_image(
-                entity_id,
+                map_id,
                 data_uri,
                 filename,
             )
 
         return self.register_asset(
-            entity_id=entity_id,
-            entity_type=entity_type,
+            map_id=map_id,
             asset_type=asset_type,
             filename=filename,
             asset_uri=asset_uri,
@@ -121,7 +107,7 @@ class AssetsService:
 
     def store_converted_image(
             self,
-            entity_id: int,
+            map_id: int,
             data_uri: str,
             filename: str,
     ) -> str:
@@ -129,35 +115,58 @@ class AssetsService:
         Get a given raw .dds from the 'ingest' bucket, convert it, and upload
         it to the assets bucket.
 
-        :param entity_id: The ID of the owning entity.
+        :param map_id: The ID of the owning map.
         :param data_uri: Base 'ingest' URI containing the raw assets.
         :param filename: The original .dds filename from the XML.
         :return: Full S3 URI of the stored (original size) asset.
         """
         converted_filename: str = self.image_converter.convert_filename(filename, self.OUTPUT_FORMAT)
-        asset_key: str = self.build_asset_key(entity_id, converted_filename)
+        asset_key: str = self.build_asset_key(map_id, converted_filename)
 
-        dds_image_data: bytes = self.ingest_bucket.get_content_from_uri(
-            uri=f"{data_uri}/assets/{filename}"
+        self.convert_and_store(
+            source_uri=f"{data_uri}/assets/{filename}",
+            asset_key=asset_key,
+            output_format=self.OUTPUT_FORMAT,
+            content_type=self.OUTPUT_CONTENT_TYPE,
         )
+
+        return self.build_asset_uri(map_id, converted_filename)
+
+    def convert_and_store(
+            self,
+            source_uri: str,
+            asset_key: str,
+            output_format: str,
+            content_type: ContentType,
+    ) -> str:
+        """
+        Get a raw .dds from the 'ingest' bucket, convert it, and upload it
+        to the assets bucket.
+
+        :param source_uri: S3 URI of the raw .dds in the ingest bucket.
+        :param asset_key: Key to store the converted image at in the assets bucket.
+        :param output_format: Target format e.g. 'webp' or 'png'.
+        :param content_type: Content type of the converted image.
+        :return: Full S3 URI of the stored asset.
+        """
+        dds_image_data: bytes = self.ingest_bucket.get_content_from_uri(uri=source_uri)
         converted_image_data: bytes = self.image_converter.convert_image(
-            dds_image_data, self.OUTPUT_FORMAT
+            dds_image_data, output_format
         )
 
-        self.assets_bucket.put_object(
+        uri: str = self.assets_bucket.put_object(
             key=asset_key,
             body=converted_image_data,
-            content_type=self.OUTPUT_CONTENT_TYPE.value,
+            content_type=content_type.value,
         )
 
-        logger.debug("[Assets-Service]: Stored '%s' -> '%s'.", filename, asset_key)
+        logger.debug("[Assets-Service]: Stored '%s' -> '%s'.", source_uri, asset_key)
 
-        return self.build_asset_uri(entity_id, converted_filename)
+        return uri
 
     def register_asset(
             self,
-            entity_id: int,
-            entity_type: EntityType,
+            map_id: int,
             asset_type: AssetType,
             filename: str,
             asset_uri: str,
@@ -165,26 +174,23 @@ class AssetsService:
         """
         Upsert the Asset record for an image that already exists in S3.
 
-        :param entity_id: The ID of the owning entity.
-        :param entity_type: The type of entity (map, vehicle, etc.).
+        :param map_id: The ID of the owning map.
         :param asset_type: The type of asset (icon, overview, etc.).
         :param filename: The original .dds filename from the XML.
         :param asset_uri: Full S3 URI of the stored asset.
         :return: The created or updated Asset.
         """
-        asset = self.asset_repository.upsert(
-            entity_type=entity_type,
-            entity_id=entity_id,
+        asset = self.asset_repository.upsert_map_asset(
+            map_id=map_id,
             asset_type=asset_type,
             filename=filename,
             asset_uri=asset_uri,
         )
 
         logger.debug(
-            "[Assets-Service]: Upserted %s asset for %s %d — '%s' -> '%s'.",
+            "[Assets-Service]: Upserted %s asset for map %d — '%s' -> '%s'.",
             asset_type.value,
-            entity_type.value,
-            entity_id,
+            map_id,
             filename,
             asset_uri,
         )
@@ -207,22 +213,22 @@ class AssetsService:
         )
 
     @staticmethod
-    def build_asset_key(entity_id: int, filename: str) -> str:
+    def build_asset_key(map_id: int, filename: str) -> str:
         """
         Construct the S3 key (no bucket/scheme) for an asset in the assets bucket.
 
-        :param entity_id: The owning entity's ID.
+        :param map_id: The owning map's ID.
         :param filename: The asset filename (should already be converted).
         :return: S3 key, e.g. '123/assets/icon.webp'.
         """
-        return f"{entity_id}/assets/{filename}"
+        return f"{map_id}/assets/{filename}"
 
-    def build_asset_uri(self, entity_id: int, filename: str) -> str:
+    def build_asset_uri(self, map_id: int, filename: str) -> str:
         """
         Construct the S3 URI for an asset in the assets bucket.
 
-        :param entity_id: The owning entity's ID.
+        :param map_id: The owning map's ID.
         :param filename: The asset filename (should already be converted).
         :return: Full S3 URI for the asset.
         """
-        return self.assets_bucket.build_uri(self.build_asset_key(entity_id, filename))
+        return self.assets_bucket.build_uri(self.build_asset_key(map_id, filename))

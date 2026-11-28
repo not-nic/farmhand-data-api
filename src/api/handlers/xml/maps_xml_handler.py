@@ -4,7 +4,7 @@ Python module containing a handler for Farming Simulator maps.xml files.
 
 from sqlalchemy.orm import Session
 
-from src.api.constants import AssetType
+from src.api.constants import AssetType, XmlHandler
 from src.api.core.db.models import Map
 from src.api.core.logger import logger
 from src.api.core.repositories.map_information_repository import MapInformationRepository
@@ -20,6 +20,8 @@ class MapsXmlHandler(BaseXmlHandler[MapsXmlModel]):
     Handler class used for processing, persisting a farming simulator mod map 'maps.xml'
     file, and creating the overview.dds map asset.
     """
+
+    key = XmlHandler.MAPS
 
     def __init__(
             self,

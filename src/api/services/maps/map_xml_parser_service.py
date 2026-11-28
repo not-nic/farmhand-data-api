@@ -3,6 +3,7 @@ Map XML Parser Service Module used for parsing a map's extracted XML
 files into structured metadata and persisting it onto the Map record.
 """
 
+from collections.abc import Collection
 from datetime import datetime
 from time import perf_counter
 from xml.etree.ElementTree import ParseError
@@ -11,7 +12,7 @@ from botocore.exceptions import ClientError
 from pydantic import ValidationError
 from sqlalchemy.orm import Session
 
-from src.api.constants import IngestionStatus
+from src.api.constants import IngestionStatus, XmlHandler
 from src.api.core.db.models import Map
 from src.api.core.logger import logger
 from src.api.handlers.xml.base_xml_handler import BaseXmlHandler
@@ -19,6 +20,7 @@ from src.api.handlers.xml.farmland_xml_handler import FarmlandsXmlHandler
 from src.api.handlers.xml.i3d.info_layer_handler import InfoLayerHandler
 from src.api.handlers.xml.maps_xml_handler import MapsXmlHandler
 from src.api.handlers.xml.mod_desc_handler import ModDescHandler
+from src.api.handlers.xml.vehicles_xml_handler import VehiclesXmlHandler
 from src.api.services.assets.assets_service import AssetsService
 from src.api.services.aws.aws_service import AwsService
 from src.api.services.maps.map_service import MapService
@@ -53,23 +55,33 @@ class MapXmlParserService:
         # Register handlers in the order they should run
         self.handlers: list[BaseXmlHandler] = [
             ModDescHandler(db, aws, assets),
+            VehiclesXmlHandler(db, aws, assets),
             MapsXmlHandler(db, aws, assets),
             InfoLayerHandler(db, aws),
             FarmlandsXmlHandler(db, aws),
         ]
 
-    def parse_map(self, map_obj: Map) -> None:
+    def parse_map(self, map_obj: Map, handlers: Collection[XmlHandler] | None = None) -> None:
         """
-        Run all registered handlers against a single map, each handler should be
+        Run registered handlers against a single map, each handler should be
         independent of each other so that a failure does not stop others
         from processing.
 
         :param map_obj: The map to parse.
+        :param handlers: If given, only run the handlers whose key is in this
+            collection, in their registered order, and leave the map's
+            ingestion_status untouched — intended for a targeted, selective
+            re-run rather than a full parse. If omitted, every registered
+            handler runs and the ingestion_status is updated as normal.
         """
         started = perf_counter()
         errors: list[str] = []
 
-        for handler in self.handlers:
+        to_run = self.handlers if handlers is None else [
+            handler for handler in self.handlers if handler.key in handlers
+        ]
+
+        for handler in to_run:
             try:
                 handler.process(map_obj)
             except ClientError as exc:
@@ -91,10 +103,21 @@ class MapXmlParserService:
                 )
                 errors.append(message)
 
-        self._update_ingestion_result(map_obj, errors)
+        if handlers is None:
+            self._update_ingestion_result(map_obj, errors)
+        elif errors:
+            logger.warning(
+                "[MapXmlParserService]: Selective reparse of %s for '%s' (%d) hit %d error(s): %s",
+                sorted(handlers),
+                map_obj.name,
+                map_obj.id,
+                len(errors),
+                "; ".join(errors),
+            )
 
         logger.info(
-            "[MapXmlParserService]: Completed parsing all XML for '%s' (%d) in %.2fs.",
+            "[MapXmlParserService]: Completed parsing %s for '%s' (%d) in %.2fs.",
+            "all XML" if handlers is None else f"{sorted(handlers)} XML",
             map_obj.name,
             map_obj.id,
             perf_counter() - started,

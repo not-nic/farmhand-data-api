@@ -4,13 +4,14 @@ service to manage, getting new maps, ingesting them, and storing map
 data.
 """
 
+from collections.abc import Collection
 from zipfile import BadZipFile
 
 from botocore.exceptions import ClientError
 from httpx2 import HTTPError
 from sqlalchemy.orm import Session
 
-from src.api.constants import IngestionStatus
+from src.api.constants import IngestionStatus, XmlHandler
 from src.api.core.config import settings
 from src.api.core.db.models import Map
 from src.api.core.exceptions import MapProcessingError
@@ -162,22 +163,45 @@ class MapIngestionService:
         """Pick up every PARSED map, transfer assets, and mark it COMPLETE."""
         pass
 
-    def reingest_map(self, map_id: int, stage: IngestionStatus) -> None:
+    def reingest_map(
+            self,
+            map_id: int,
+            stage: IngestionStatus,
+            handlers: Collection[XmlHandler] | None = None,
+    ) -> None:
         """
         Manually reingest a map, optionally starting from a later stage.
 
         :param map_id: The ModHub ID of the map to reingest.
         :param stage: Which stage to start the reingest from.
-        :raises ValueError: If no map with the given ID exists, or
-            from_stage isn't a supported starting point.
+        :param handlers: If given, only re-run these XML handlers instead of every
+            handler in the 'EXTRACTED' stage, and only reset the downstream
+            ingestion state (info layers/farmlands) owned by a selected handler.
+            Only valid when stage is 'EXTRACTED'.
+        :raises ValueError: If no map with the given ID exists, from_stage isn't
+            a supported starting point, or handlers is given with a stage other
+            than 'EXTRACTED'.
         """
         if stage not in self.VALID_STAGES:
             raise ValueError(f"Cannot reingest from stage '{stage.value}'.")
+
+        if handlers is not None and stage != IngestionStatus.EXTRACTED:
+            raise ValueError(
+                "Handlers can only be selected when reingesting from stage 'EXTRACTED'."
+            )
 
         map_obj = self.map_service.get_map_by_id(map_id)
 
         if map_obj is None:
             raise ValueError(f"No map found with ID {map_id}.")
+
+        if handlers is not None and not map_obj.data_uri:
+            logger.info(
+                "Skipping selective reingest for '%s' (%d) — no data_uri.",
+                map_obj.name,
+                map_obj.id,
+            )
+            return
 
         logger.info(
             "Starting manual reingest for '%s' (%d) from %s.",
@@ -221,21 +245,42 @@ class MapIngestionService:
                 )
                 return
 
-        self.xml_parser_service.parse_map(map_obj)
-        self._reset_downstream_ingestion(map_obj)
+        self.xml_parser_service.parse_map(map_obj, handlers)
+        self._reset_downstream_ingestion(map_obj, handlers)
 
         logger.info("Reingest complete for '%s' (%d).", map_obj.name, map_obj.id)
 
-    def reingest_all_maps(self, stage: IngestionStatus) -> None:
+    def reingest_all_maps(
+            self,
+            stage: IngestionStatus,
+            handlers: Collection[XmlHandler] | None = None,
+    ) -> None:
         """
         Reset every map to a given stage for the scheduled pipeline to
-        retry, rather than reprocessing sequentially here.
+        retry, rather than reprocessing sequentially here. If handlers are
+        given, there's no status to reset the maps to — a status alone
+        can't express "just re-run vehicles" — so each map is reprocessed
+        directly instead.
 
-        :param stage: Which stage to reset every map to.
-        :raises ValueError: If from_stage isn't a supported starting point.
+        :param stage: Which stage to reset every map to, or reprocess from.
+        :param handlers: If given, only re-run these XML handlers (and their
+            matching downstream reset) against every map that has a
+            data_uri, processing each one immediately rather than resetting
+            its status for the scheduler. Only valid when stage is 'EXTRACTED'.
+        :raises ValueError: If from_stage isn't a supported starting point, or
+            handlers is given with a stage other than 'EXTRACTED'.
         """
         if stage not in self.VALID_STAGES:
             raise ValueError(f"Cannot reingest from stage '{stage.value}'.")
+
+        if handlers is not None and stage != IngestionStatus.EXTRACTED:
+            raise ValueError(
+                "Handlers can only be selected when reingesting from stage 'EXTRACTED'."
+            )
+
+        if handlers is not None:
+            self._reingest_all_maps_with_handlers(handlers)
+            return
 
         maps = self.map_service.get_maps()
 
@@ -261,7 +306,46 @@ class MapIngestionService:
 
         logger.info("Reset %d map(s) to %s.", len(maps), stage.value)
 
-    def _reset_downstream_ingestion(self, map_obj: Map) -> None:
+    def _reingest_all_maps_with_handlers(self, handlers: Collection[XmlHandler]) -> None:
+        """
+        Immediately re-run a subset of XML handlers against every map with a
+        data_uri, rather than resetting a status for the scheduler to pick up.
+
+        :param handlers: Which XML handlers to re-run (and whose matching
+            downstream ingestion state to reset) for each map.
+        """
+        maps = self.map_service.get_maps_with_data_uri()
+
+        if not maps:
+            logger.info("No maps with a data_uri found to reingest.")
+            return
+
+        reingested_count = 0
+        for map_obj in maps:
+            try:
+                self.xml_parser_service.parse_map(map_obj, handlers)
+                self._reset_downstream_ingestion(map_obj, handlers)
+                reingested_count += 1
+            except Exception as exc:
+                logger.error(
+                    "Selective reingest failed for '%s' (%d): %s",
+                    map_obj.name,
+                    map_obj.id,
+                    exc,
+                )
+
+        logger.info(
+            "Selectively reingested %d/%d map(s) for handlers %s.",
+            reingested_count,
+            len(maps),
+            sorted(handlers),
+        )
+
+    def _reset_downstream_ingestion(
+            self,
+            map_obj: Map,
+            handlers: Collection[XmlHandler] | None = None,
+    ) -> None:
         """
         Reset the ingestion state of anything derived from this map's
         GRLE/geometry data, so the async conversion and geometry jobs
@@ -269,12 +353,19 @@ class MapIngestionService:
         skipping it as already done.
 
         :param map_obj: The map that was just reparsed.
+        :param handlers: If given, only reset info layers when INFO_LAYERS is
+            selected, and only reset farmlands when FARMLANDS is selected.
+            If omitted, both are reset.
         """
-        for info_layer in self.info_layer_repository.get_by_map_id(map_obj.id):
-            self.info_layer_repository.update(info_layer, is_ingested=False, asset_uri=None)
+        if handlers is None or XmlHandler.INFO_LAYERS in handlers:
+            for info_layer in self.info_layer_repository.get_by_map_id(map_obj.id):
+                self.info_layer_repository.update(info_layer, is_ingested=False, asset_uri=None)
 
-        for farmland in self.farmland_repository.get_by_map_id(map_obj.id):
-            self.farmland_repository.update(farmland, area_types=None, coordinates=None, size_ha=None)
+        if handlers is None or XmlHandler.FARMLANDS in handlers:
+            for farmland in self.farmland_repository.get_by_map_id(map_obj.id):
+                self.farmland_repository.update(
+                    farmland, area_types=None, coordinates=None, size_ha=None
+                )
 
         logger.debug(
             "Reset downstream ingestion state for '%s' (%d).",
